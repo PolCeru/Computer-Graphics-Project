@@ -41,7 +41,7 @@
 #include <plusaes.hpp>
 
 #define SINFL_IMPLEMENTATION
-#include <sinfl.h>
+//#include <sinfl.h>
 
 // For compile compatibility issues
 #define M_E			2.7182818284590452354	/* e */
@@ -2568,7 +2568,7 @@ void Model::loadModelGLTF(std::string file, bool encoded) {
 //}
 
 		decomp = calloc(size, 1);
-		int n = sinflate(decomp, (int)size, &decrypted[16], decrypted.size()-16);
+		//int n = sinflate(decomp, (int)size, &decrypted[16], decrypted.size()-16);
 		
 		if (!loader.LoadASCIIFromString(&model, &warn, &err, 
 						reinterpret_cast<const char *>(decomp), size, "/")) {
