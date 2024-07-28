@@ -7,6 +7,13 @@ struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 eyePos;
 };
 
+struct UniformBufferObject {
+	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
+	alignas(16) glm::mat4 mMat;   //World Matrix
+	alignas(16) glm::mat4 nMat;   //Normal Matrix
+	alignas(16) glm::vec4 color;
+};
+
 //Skybox
 struct skyBoxUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat;
@@ -16,19 +23,10 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
-
 //Floor
 struct FloorVertex {
 	glm::vec3 pos;
-	glm::vec3 normal;
-	
-};
-
-
-struct FloorUniformBufferObject {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
+	glm::vec2 uv;
 };
 
 // MAIN ! 
@@ -46,7 +44,6 @@ protected:
 	Texture TSkyBox, TStars;
 	DescriptorSet DSSkyBox;
 
-
 	//Floor 
 	DescriptorSetLayout DSLfloor; 
 	VertexDescriptor VDfloor; 
@@ -55,12 +52,9 @@ protected:
 	Texture Tfloor; 
 	DescriptorSet DSfloor; 
 
-
-
 	//Application Parameters
-	glm::vec3 CamPos = glm::vec3(0.0, 0.1, 5.0);
-	glm::mat4 ViewMatrix;
-
+	glm::vec3 CamPos = glm::vec3(0.0, 0.1, 5.0); //Camera Position
+	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -CamPos); //View Matrix setup
 
 	float Ar;
 	
@@ -85,7 +79,7 @@ protected:
 	// Here you load and setup all your Vulkan Models and Texutures.
 	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
 	void localInit() {
-		//Descriptor Set Layout
+		//----------------Descriptor Set Layout----------------
 		//Global
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1}
@@ -98,7 +92,13 @@ protected:
 					{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1}
 			});
 
-		//Vertex Descriptor
+		//Floor
+		DSLfloor.init(this, {
+				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
+				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
+		});
+
+		//----------------Vertex Descriptor----------------
 		//Skybox
 		VDSkyBox.init(this, {
 				{0, sizeof(skyBoxVertex), VK_VERTEX_INPUT_RATE_VERTEX}
@@ -106,58 +106,29 @@ protected:
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION}
 			});
 
-
-
-		//Pipelines
-		//SkyBox
-		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
-		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL,
- 								    VK_CULL_MODE_BACK_BIT, false); 
-
-		//Models
-		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-
-		//Textures
-		TSkyBox.init(this, "textures/starmap_g4k.jpg");
-		TStars.init(this, "textures/constellation_figures.png");
-
 		//Floor
-		//Floor Descriptor Set Layout 
-		DSLfloor.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(FloorUniformBufferObject), 1}
-		});
-
-		// Floor Vertex Descriptor
 		VDfloor.init(this, {
 				{0, sizeof(FloorVertex), VK_VERTEX_INPUT_RATE_VERTEX }
 			}, {
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertex, normal), sizeof(glm::vec3), NORMAL}
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(FloorVertex, uv), sizeof(glm::vec2), UV}
 			});
-		
-		
+
+		//----------------Pipelines----------------
+		//SkyBox
+		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
+		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
 		// Floor pipeline	
-		Pfloor.init(this, &VDfloor, "shaders/FloorVert.spv", "shaders/FloorFrag.spv", { &DSLfloor });
+		Pfloor.init(this, &VDfloor, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLfloor}); 
 
-		// Floor model 
-		std::vector<FloorVertex> floorVertices = {
-				{{-100.0f, 0.0f, -100.0f}, {0.0f, 1.0f, 0.0f}},
-				{{-100.0f, 0.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
-				{{100.0f, 0.0f, -100.0f}, {0.0f, 1.0f, 0.0f}},
-				{{100.0f, 0.0f, 10.0f}, {0.0f, 1.0f, 0.0f}}
-			};
+		//----------------Models----------------
+		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
+		Mfloor.init(this, &VDfloor, "models/plant_004.mgcg", MGCG);
 
-		std::vector<uint32_t> floorIndices = { 0, 1, 2, 1, 3, 2 };
-
-		std::vector<unsigned char> floorVerticesData;
-		floorVerticesData.resize(floorVertices.size() * sizeof(FloorVertex));
-		memcpy(floorVerticesData.data(), floorVertices.data(), floorVerticesData.size());
-
-		Mfloor.vertices = std::move(floorVerticesData);
-		Mfloor.indices = std::move(floorIndices);
-
-		Mfloor.initMesh(this, &VDfloor);
-
+		//----------------Textures----------------
+		TSkyBox.init(this, "textures/starmap_g4k.jpg");
+		TStars.init(this, "textures/constellation_figures.png");
+		Tfloor.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
 		DPSZs.uniformBlocksInPool = 3;
@@ -167,21 +138,18 @@ protected:
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
 		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
-
-		ViewMatrix = glm::translate(glm::mat4(1), -CamPos);
 	}
 	
 	// Here you create your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsInit() {
-		//Pipeline Creation
-		PSkyBox.create();
-		Pfloor.create(); 
-
-
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DSfloor.init(this, &DSLfloor, {}); 
+		DSfloor.init(this, &DSLfloor, {&Tfloor}); 
+		
+		//Pipeline Creation
+		PSkyBox.create();
+		Pfloor.create(); 
 	}
 
 	// Here you destroy your pipelines and Descriptor Sets!
@@ -191,11 +159,11 @@ protected:
 		PSkyBox.cleanup();
 		Pfloor.cleanup();
 
-
 		//Descriptor Set Cleanup
+		DSGlobal.cleanup();
 		DSSkyBox.cleanup();
 		DSfloor.cleanup(); 
-
+		
 	}
 
 	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
@@ -203,17 +171,18 @@ protected:
 	// You also have to destroy the pipelines: since they need to be rebuilt, they have two different
 	// methods: .cleanup() recreates them, while .destroy() delete them completely
 	void localCleanup() {	
+		//Textures Cleanup
+		TSkyBox.cleanup();
+		TStars.cleanup();
+		Tfloor.cleanup();
+
 		//Models Cleanup
 		MSkyBox.cleanup();
 		Mfloor.cleanup(); 
 
-		//Textures Cleanup
-		TSkyBox.cleanup();
-		TStars.cleanup();
-
 		//Descriptor Set Layouts Cleanup
-		DSLSkyBox.cleanup();
 		DSLGlobal.cleanup();
+		DSLSkyBox.cleanup();
 		DSLfloor.cleanup(); 
 		
 		//Pipelines destruction
@@ -225,14 +194,13 @@ protected:
 	// You send to the GPU all the objects you want to draw,
 	// with their buffers and textures
 	void populateCommandBuffer(VkCommandBuffer commandBuffer, int currentImage) {
-
-
 		//Draw SkyBox
 		PSkyBox.bind(commandBuffer);
 		MSkyBox.bind(commandBuffer);
 		DSSkyBox.bind(commandBuffer, PSkyBox, 0, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MSkyBox.indices.size()), 1, 0, 0, 0);
 
+		//Draw Floor
 		Pfloor.bind(commandBuffer); 
 		Mfloor.bind(commandBuffer); 
 		DSfloor.bind(commandBuffer, Pfloor, 0, currentImage); 
@@ -252,46 +220,38 @@ protected:
 		static float cTime = 0.0;
 		const float turnTime = 72.0f;
 		const float angTurnTimeFact = 2.0f * M_PI / turnTime;
-
 		const float ROT_SPEED = glm::radians(120.0f);
 		const float MOVE_SPEED = 2.0f;
 
 		// The Fly model update proc.
-		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.x * deltaT,
-								 glm::vec3(1, 0, 0)) * ViewMatrix;
-		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.y * deltaT,
-								 glm::vec3(0, 1, 0)) * ViewMatrix;
-		ViewMatrix = glm::rotate(glm::mat4(1), -ROT_SPEED * r.z * deltaT,
-								 glm::vec3(0, 0, 1)) * ViewMatrix;
-		ViewMatrix = glm::translate(glm::mat4(1), -glm::vec3(
-								   MOVE_SPEED * m.x * deltaT, MOVE_SPEED * m.y * deltaT, MOVE_SPEED * m.z * deltaT))
-													   * ViewMatrix;
-		// updates global uniforms
-		
-				
+		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.x * deltaT, glm::vec3(1, 0, 0)) * ViewMatrix; //Pitch
+		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.y * deltaT, glm::vec3(0, 1, 0)) * ViewMatrix; //Yaw
+		ViewMatrix = glm::rotate(glm::mat4(1), -ROT_SPEED * r.z * deltaT, glm::vec3(0, 0, 1)) * ViewMatrix; //Roll
+		ViewMatrix = glm::translate(glm::mat4(1), -glm::vec3(MOVE_SPEED * m.x * deltaT, MOVE_SPEED * m.y * deltaT, MOVE_SPEED * m.z * deltaT)) * ViewMatrix; //Move
+
+		// updates global uniforms				
 		// Global
 		GlobalUniformBufferObject gubo{};
 		gubo.lightDir = glm::vec3(1.0f);
-		gubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		gubo.lightColor = glm::vec4(1.0f);
 		gubo.eyePos = glm::vec3(1.0f);
 		DSGlobal.map(currentImage, &gubo, 0);
 
 		//Matrixes
-		glm::mat4 M = glm::perspective(glm::radians(45.0f), Ar, 0.1f, 160.0f);
-		M[1][1] *= -1;
-		glm::mat4 Mv = ViewMatrix;					
+		glm::mat4 pMat = glm::perspective(glm::radians(45.0f), Ar, 0.1f, 160.0f);  //Projection Matrix
+		pMat[1][1] *= -1;															//Flip Y
 
 		//Object Uniform Buffer creation
 		//SkyBox
 		skyBoxUniformBufferObject sbubo{};
-		sbubo.mvpMat = M * glm::mat4(glm::mat3(Mv));
+		sbubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix));
 		DSSkyBox.map(currentImage, &sbubo, 0);
 
-		FloorUniformBufferObject fubo{}; 
-		fubo.model = glm::mat4(1.0f);
-		fubo.view = ViewMatrix; 
-		fubo.proj = glm::perspective(glm::radians(45.0f), Ar, 0.1f, 160.0f);
-		fubo.proj[1][1] *= -1; 
+		//Floor
+		UniformBufferObject fubo{}; 
+		fubo.mvpMat = glm::mat4(1.0f);
+		fubo.mMat = ViewMatrix; 
+		fubo.nMat = pMat;
 		DSfloor.map(currentImage, &fubo, 0);
 	}
 };
