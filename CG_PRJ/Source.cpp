@@ -48,7 +48,7 @@ protected:
 	Pipeline Penv; 
 	Model Mcar, Mfloor; 
 	Texture Tenv; 
-	DescriptorSet DSenv; 
+	DescriptorSet DSenv, DScar; 
 
 	//Application Parameters
 	glm::vec3 camPos = glm::vec3(0.0, 2.0, -5.0); //Camera Position
@@ -135,9 +135,9 @@ protected:
 		Tenv.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
-		DPSZs.uniformBlocksInPool = 3;		//# of uniform buffers  (Global, SkyBox, Uniform)
-		DPSZs.texturesInPool = 3;			//# of textures			(SkyBox, Stars, Environment)
-		DPSZs.setsInPool = 3;  				//# of DS				(Global, SkyBox, Environment)
+		DPSZs.uniformBlocksInPool = 4;	//# of uniform buffers  (Global, SkyBox, Uniform, Car)
+		DPSZs.texturesInPool = 4;		//# of textures			(SkyBox, Stars, Environment, Car)
+		DPSZs.setsInPool = 4;  			//# of DS				(Global, SkyBox, Environment, Car)
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -149,6 +149,7 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
+		DScar.init(this, &DSLenv, {&Tenv}); 
 		DSenv.init(this, &DSLenv, {&Tenv}); 
 		
 		//Pipeline Creation
@@ -167,6 +168,7 @@ protected:
 		DSGlobal.cleanup();
 		DSSkyBox.cleanup();
 		DSenv.cleanup(); 
+		DScar.cleanup();
 		
 	}
 
@@ -208,7 +210,7 @@ protected:
 		//Draw Car
 		Penv.bind(commandBuffer); 
 		Mcar.bind(commandBuffer); 
-		DSenv.bind(commandBuffer, Penv, 0, currentImage); 
+		DScar.bind(commandBuffer, Penv, 0, currentImage); 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
 		//Draw Floor
@@ -247,7 +249,7 @@ protected:
 		glm::vec3 uy = glm::vec3(0,1,0);
 		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
 		alpha += ROT_SPEED * r.y * deltaT;	 // yaw
-		//beta += ROT_SPEED * r.x * deltaT; // pitch
+		beta += ROT_SPEED * r.x * deltaT; // pitch
 		//rho += ROT_SPEED * r.z * deltaT;  // roll
 		camPos += ux * MOVE_SPEED * m.x * deltaT;
 		camPos += uy * MOVE_SPEED * m.y * deltaT;
@@ -261,7 +263,7 @@ protected:
 						glm::lookAt(camPos, camPos + uz, uy);
 		vpMat = pMat * ViewMatrix; 
 
-		glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
+		//glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
 
 		//----------------------------------------------------
 
@@ -284,13 +286,13 @@ protected:
 		car_ubo.mMat = glm::mat4(1.0f);
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
 		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
-		DSenv.map(currentImage, &car_ubo, 0);
+		DScar.map(currentImage, &car_ubo, 0);
 
 		//Floor
 		UniformBufferObject floor_ubo{}; 
-		floor_ubo.mMat = vpMat;
-		floor_ubo.mvpMat = glm::mat4(1.0f);
-		floor_ubo.nMat = glm::mat4(1.0f);
+		floor_ubo.mMat = glm::mat4(1.0f);
+		floor_ubo.mvpMat = vpMat * floor_ubo.mMat;
+		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat));;
 		DSenv.map(currentImage, &floor_ubo, 0);
 	}
 };
