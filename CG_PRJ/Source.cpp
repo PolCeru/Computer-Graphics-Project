@@ -135,9 +135,9 @@ protected:
 		Tenv.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
-		DPSZs.uniformBlocksInPool = 5;
-		DPSZs.texturesInPool = 5;
-		DPSZs.setsInPool = 5;
+		DPSZs.uniformBlocksInPool = 3;		//# of uniform buffers  (Global, SkyBox, Uniform)
+		DPSZs.texturesInPool = 3;			//# of textures			(SkyBox, Stars, Environment)
+		DPSZs.setsInPool = 3;  				//# of DS				(Global, SkyBox, Environment)
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
