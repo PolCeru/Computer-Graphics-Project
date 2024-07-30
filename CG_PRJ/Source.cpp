@@ -60,6 +60,12 @@ protected:
 	float FOVy = glm::radians(60.0f);
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
+
+
+	glm::vec3 currCarPos = glm::vec3(0.0f);
+	float steeringAng = 0.0f;
+
+
 	
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -233,6 +239,13 @@ protected:
 		// Parameters for the Camera
 		constexpr float ROT_SPEED = glm::radians(120.0f);
 		constexpr float MOVE_SPEED = 2.0f;
+		const float STEERING_SPEED = glm::radians(30.0f);
+
+		steeringAng += -m.x * STEERING_SPEED * deltaT;
+		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
+			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
+
+
 
 		static float alpha   = M_PI;				// yaw
 		static float beta = glm::radians(5.0f);     // pitch
@@ -245,20 +258,29 @@ protected:
 
 		//----------------Walk model procedure---------------- (In progress)
 		// Walk model procedure
+		
+		currCarPos.z += MOVE_SPEED * deltaT * m.z * glm::cos(steeringAng);
+		currCarPos.x += MOVE_SPEED * deltaT * m.z * glm::sin(steeringAng); 
+		
+		camPos = currCarPos + glm::vec3(0.0f, 2.0f, 5.0f); 
+
 		glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
 		glm::vec3 uy = glm::vec3(0,1,0);
 		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
 		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
 		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
-		camPos -= ux * MOVE_SPEED * m.x * deltaT;
+		
+		
+		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
 		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
-		camPos -= uz * MOVE_SPEED * m.z * deltaT;
+		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
 
 		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
 		//camPos = camTarget + cameraOffset;
 
-		ViewMatrix = glm::lookAt(camPos, camTarget, uy);
+				
+		ViewMatrix = glm::lookAt(camPos, currCarPos, uy);
 		vpMat = pMat * ViewMatrix; 
 		//glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
  
@@ -286,10 +308,15 @@ protected:
 		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
+
+
+		
+
+
 		//Car
 		UniformBufferObject car_ubo{}; 
-		car_ubo.mMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 10.0)) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(180.f), glm::vec3(0, 1, 0));
+		car_ubo.mMat = glm::translate(glm::mat4(1.0f), currCarPos) *
+						glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
 		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
