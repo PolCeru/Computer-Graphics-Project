@@ -14,5 +14,5 @@ layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
 	fragTexCoord = inUV;
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+    gl_Position = rotate((ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0)), radians(180.0f), vec3(0, 1, 0));
 }

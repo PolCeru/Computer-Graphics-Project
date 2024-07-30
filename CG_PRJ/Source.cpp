@@ -9,9 +9,8 @@ struct GlobalUniformBufferObject {
 
 struct UniformBufferObject {
 	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
-	alignas(16) glm::mat4 mMat;   //World Matrix
+	alignas(16) glm::mat4 mMat;   //Model/World Matrix
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
-	alignas(16) glm::vec4 color;
 };
 
 //Skybox
@@ -23,8 +22,7 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
-//Floor
-struct FloorVertex {
+struct Vertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
 };
@@ -44,19 +42,24 @@ protected:
 	Texture TSkyBox, TStars;
 	DescriptorSet DSSkyBox;
 
-	//Floor 
-	DescriptorSetLayout DSLfloor; 
-	VertexDescriptor VDfloor; 
-	Pipeline Pfloor; 
-	Model Mfloor; 
-	Texture Tfloor; 
-	DescriptorSet DSfloor; 
+	//Environment 
+	DescriptorSetLayout DSLenv; 
+	VertexDescriptor VDenv; 
+	Pipeline Penv; 
+	Model Mcar, Mfloor; 
+	Texture Tenv; 
+	DescriptorSet DSenv; 
 
 	//Application Parameters
-	glm::vec3 CamPos = glm::vec3(0.0, 0.1, 5.0); //Camera Position
-	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -CamPos); //View Matrix setup
+	glm::vec3 camPos = glm::vec3(0.0, 2.0, -5.0); //Camera Position
+	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), camPos); //View Matrix setup
+	glm::vec3 camTarget = glm::vec3(0.0, 0.0, 0.0); //Car Position
+	const glm::vec3 CamTargetDelta = glm::vec3(0,2,0);
 
 	float Ar;
+	float FOVy = glm::radians(60.0f);
+	float nearPlane = 0.1f;
+	float farPlane = 500.0f;
 	
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -92,8 +95,8 @@ protected:
 					{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1}
 			});
 
-		//Floor
-		DSLfloor.init(this, {
+		//Environment
+		DSLenv.init(this, {
 				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
 				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
 		});
@@ -106,34 +109,35 @@ protected:
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION}
 			});
 
-		//Floor
-		VDfloor.init(this, {
-				{0, sizeof(FloorVertex), VK_VERTEX_INPUT_RATE_VERTEX }
+		//Environment
+		VDenv.init(this, {
+				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(FloorVertex, uv), sizeof(glm::vec2), UV}
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV}
 			});
 
 		//----------------Pipelines----------------
 		//SkyBox
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
-		// Floor pipeline	
-		Pfloor.init(this, &VDfloor, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLfloor}); 
+		// Environment	
+		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLenv}); 
 
 		//----------------Models----------------
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-		Mfloor.init(this, &VDfloor, "models/plant_004.mgcg", MGCG);
+		Mcar.init(this, &VDenv, "models/car.mgcg", MGCG);
+		Mfloor.init(this, &VDenv, "models/LargePlane.obj", OBJ);
 
 		//----------------Textures----------------
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
 		TStars.init(this, "textures/constellation_figures.png");
-		Tfloor.init(this, "textures/Textures_City.png");
+		Tenv.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
-		DPSZs.uniformBlocksInPool = 3;
-		DPSZs.texturesInPool = 3;
-		DPSZs.setsInPool = 3;
+		DPSZs.uniformBlocksInPool = 5;
+		DPSZs.texturesInPool = 5;
+		DPSZs.setsInPool = 5;
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -145,11 +149,11 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DSfloor.init(this, &DSLfloor, {&Tfloor}); 
+		DSenv.init(this, &DSLenv, {&Tenv}); 
 		
 		//Pipeline Creation
 		PSkyBox.create();
-		Pfloor.create(); 
+		Penv.create();
 	}
 
 	// Here you destroy your pipelines and Descriptor Sets!
@@ -157,12 +161,12 @@ protected:
 	void pipelinesAndDescriptorSetsCleanup() {
 		//Pipelines Cleanup
 		PSkyBox.cleanup();
-		Pfloor.cleanup();
+		Penv.cleanup();
 
 		//Descriptor Set Cleanup
 		DSGlobal.cleanup();
 		DSSkyBox.cleanup();
-		DSfloor.cleanup(); 
+		DSenv.cleanup(); 
 		
 	}
 
@@ -174,20 +178,21 @@ protected:
 		//Textures Cleanup
 		TSkyBox.cleanup();
 		TStars.cleanup();
-		Tfloor.cleanup();
+		Tenv.cleanup();
 
 		//Models Cleanup
 		MSkyBox.cleanup();
-		Mfloor.cleanup(); 
+		Mcar.cleanup(); 
+		Mfloor.cleanup();
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
 		DSLSkyBox.cleanup();
-		DSLfloor.cleanup(); 
+		DSLenv.cleanup();
 		
 		//Pipelines destruction
 		PSkyBox.destroy();
-		Pfloor.destroy(); 
+		Penv.destroy(); 
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -200,59 +205,93 @@ protected:
 		DSSkyBox.bind(commandBuffer, PSkyBox, 0, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MSkyBox.indices.size()), 1, 0, 0, 0);
 
-		//Draw Floor
-		Pfloor.bind(commandBuffer); 
-		Mfloor.bind(commandBuffer); 
-		DSfloor.bind(commandBuffer, Pfloor, 0, currentImage); 
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), 1, 0, 0, 0);
+		//Draw Car
+		Penv.bind(commandBuffer); 
+		Mcar.bind(commandBuffer); 
+		DSenv.bind(commandBuffer, Penv, 0, currentImage); 
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
+		//Draw Floor
+		Penv.bind(commandBuffer); 
+		Mfloor.bind(commandBuffer); 
+		DSenv.bind(commandBuffer, Penv, 0, currentImage); 
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), 1, 0, 0, 0);
 	}
 
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
-		float deltaT;
-		glm::vec3 m = glm::vec3(0.0f);
-		glm::vec3 r = glm::vec3(0.0f);
-		bool fire = false;
-		getSixAxis(deltaT, m, r, fire);
+		// Parameters for the SixAxis
+		float deltaT;					// Time between frames
+		glm::vec3 m = glm::vec3(0.0f);  // Movement
+		glm::vec3 r = glm::vec3(0.0f);  // Rotation
+		bool fire = false;				// Button pressed
+		getSixAxis(deltaT, m, r, fire); 
 
-		static float cTime = 0.0;
-		const float turnTime = 72.0f;
-		const float angTurnTimeFact = 2.0f * M_PI / turnTime;
-		const float ROT_SPEED = glm::radians(120.0f);
-		const float MOVE_SPEED = 2.0f;
+		// Parameters for the Camera
+		constexpr float ROT_SPEED = glm::radians(120.0f);
+		constexpr float MOVE_SPEED = 2.0f;
 
-		// The Fly model update proc.
-		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.x * deltaT, glm::vec3(1, 0, 0)) * ViewMatrix; //Pitch
-		ViewMatrix = glm::rotate(glm::mat4(1), ROT_SPEED * r.y * deltaT, glm::vec3(0, 1, 0)) * ViewMatrix; //Yaw
-		ViewMatrix = glm::rotate(glm::mat4(1), -ROT_SPEED * r.z * deltaT, glm::vec3(0, 0, 1)) * ViewMatrix; //Roll
-		ViewMatrix = glm::translate(glm::mat4(1), -glm::vec3(MOVE_SPEED * m.x * deltaT, MOVE_SPEED * m.y * deltaT, MOVE_SPEED * m.z * deltaT)) * ViewMatrix; //Move
+		static float alpha   = M_PI;				// yaw
+		static float beta = glm::radians(5.0f);     // pitch
+		static float camDist  = 10.0f;				// distance from the target
 
-		// updates global uniforms				
-		// Global
-		GlobalUniformBufferObject gubo{};
-		gubo.lightDir = glm::vec3(1.0f);
-		gubo.lightColor = glm::vec4(1.0f);
-		gubo.eyePos = glm::vec3(1.0f);
-		DSGlobal.map(currentImage, &gubo, 0);
+		//Matrices setup 
+		glm::mat4 pMat = glm::perspective(FOVy, Ar, nearPlane, farPlane);	//Projection Matrix
+		pMat[1][1] *= -1;													//Flip Y
+		glm::mat4 vpMat;													//View Projection Matrix
 
-		//Matrixes
-		glm::mat4 pMat = glm::perspective(glm::radians(45.0f), Ar, 0.1f, 160.0f);  //Projection Matrix
-		pMat[1][1] *= -1;															//Flip Y
+		//----------------Walk model procedure---------------- (In progress)
+		// Walk model procedure
+		glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
+		glm::vec3 uy = glm::vec3(0,1,0);
+		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
+		alpha += ROT_SPEED * r.y * deltaT;	 // yaw
+		//beta += ROT_SPEED * r.x * deltaT; // pitch
+		//rho += ROT_SPEED * r.z * deltaT;  // roll
+		camPos += ux * MOVE_SPEED * m.x * deltaT;
+		camPos += uy * MOVE_SPEED * m.y * deltaT;
+		camPos += uz * MOVE_SPEED * m.z * deltaT;
 
+		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
+		//camPos = camTarget + cameraOffset;
+
+		ViewMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0)) * //rotate view 180 degrees
+						glm::rotate(glm::mat4(1.0f), -beta, glm::vec3(1, 0, 0)) *				  //pitch
+						glm::lookAt(camPos, camPos + uz, uy);
+		vpMat = pMat * ViewMatrix; 
+
+		glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
+
+		//----------------------------------------------------
+
+		//Update global uniforms				
+		//Global
+		GlobalUniformBufferObject g_ubo{};
+		g_ubo.lightDir = glm::vec3(1.0f);
+		g_ubo.lightColor = glm::vec4(1.0f);
+		g_ubo.eyePos = glm::vec3(1.0f);
+		DSGlobal.map(currentImage, &g_ubo, 0);
+		
 		//Object Uniform Buffer creation
 		//SkyBox
-		skyBoxUniformBufferObject sbubo{};
-		sbubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix));
-		DSSkyBox.map(currentImage, &sbubo, 0);
+		skyBoxUniformBufferObject sb_ubo{};
+		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
+		DSSkyBox.map(currentImage, &sb_ubo, 0);
+
+		//Car
+		UniformBufferObject car_ubo{}; 
+		car_ubo.mMat = glm::mat4(1.0f);
+		car_ubo.mvpMat = vpMat * car_ubo.mMat;
+		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
+		DSenv.map(currentImage, &car_ubo, 0);
 
 		//Floor
-		UniformBufferObject fubo{}; 
-		fubo.mvpMat = glm::mat4(1.0f);
-		fubo.mMat = ViewMatrix; 
-		fubo.nMat = pMat;
-		DSfloor.map(currentImage, &fubo, 0);
+		UniformBufferObject floor_ubo{}; 
+		floor_ubo.mMat = vpMat;
+		floor_ubo.mvpMat = glm::mat4(1.0f);
+		floor_ubo.nMat = glm::mat4(1.0f);
+		DSenv.map(currentImage, &floor_ubo, 0);
 	}
 };
 
