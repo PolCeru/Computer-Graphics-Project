@@ -51,7 +51,7 @@ protected:
 	DescriptorSet DSenv, DScar; 
 
 	//Application Parameters
-	glm::vec3 camPos = glm::vec3(0.0, 2.0, 5.0); //Camera Position (l/r, d/u, b/f)
+	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0); //Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos); //View Matrix setup
 	glm::vec3 camTarget = glm::vec3(0.0, 0.0, 0.0); //Car Position
 	const glm::vec3 CamTargetDelta = glm::vec3(0,2,0);
@@ -249,20 +249,19 @@ protected:
 		glm::vec3 uy = glm::vec3(0,1,0);
 		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
 		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
-		//beta -= ROT_SPEED * r.x * deltaT; // pitch
+		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
 		camPos -= ux * MOVE_SPEED * m.x * deltaT;
-		//camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
+		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
 		camPos -= uz * MOVE_SPEED * m.z * deltaT;
 
 		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
 		//camPos = camTarget + cameraOffset;
 
-		ViewMatrix = glm::lookAt(camPos, camPos + uz, uy);
+		ViewMatrix = glm::lookAt(camPos, camTarget, uy);
 		vpMat = pMat * ViewMatrix; 
-
 		//glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
-		// 
+ 
 		//----------------------------------------------------
 
 		/*----------------fly model procedure---------------- (not used)
@@ -271,7 +270,7 @@ protected:
 		ViewMatrix = glm::rotate(glm::mat4(1), -ROT_SPEED * r.z * deltaT, glm::vec3(0, 0, 1)) * ViewMatrix;
 		ViewMatrix = glm::translate(glm::mat4(1), -glm::vec3(MOVE_SPEED * m.x * deltaT, MOVE_SPEED * m.y * deltaT, MOVE_SPEED * m.z * deltaT)) * ViewMatrix;
 		vpMat = pMat * ViewMatrix;
-		fly model procedure*/
+		*/
 
 		//Update global uniforms				
 		//Global
@@ -289,14 +288,15 @@ protected:
 
 		//Car
 		UniformBufferObject car_ubo{}; 
-		car_ubo.mMat = glm::rotate(glm::mat4(1.0f), glm::radians(180.f), glm::vec3(0, 1, 0));
+		car_ubo.mMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 10.0)) *
+						glm::rotate(glm::mat4(1.0f), glm::radians(180.f), glm::vec3(0, 1, 0));
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
 		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
 		//Floor
 		UniformBufferObject floor_ubo{}; 
-		floor_ubo.mMat = glm::mat4(1.0f);
+		floor_ubo.mMat = glm::mat4(1.0f); //glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 0.1));
 		floor_ubo.mvpMat = vpMat * floor_ubo.mMat;
 		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat));;
 		DSenv.map(currentImage, &floor_ubo, 0);
