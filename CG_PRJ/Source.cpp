@@ -61,9 +61,18 @@ protected:
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
 
-
-	glm::vec3 currCarPos = glm::vec3(0.0f);
+	/******* CAR PARAMETERS *******/
+	glm::vec3 startingCarPos = glm::vec3(0.0f);
+	glm::vec3 updatedCarPos = glm::vec3(0.0f);
 	float steeringAng = 0.0f;
+	float carVelocity = 0.0f;
+	float carAcceleration = 1.0f;  // realistically it should depend on the acceleration of the car
+	float carDeceleration = 0.0f; // Not implemented the logic yer, but it should depend on the car brake
+	float carDecelerationEffect = 10.0f; //realistically it should depend on the surface attrition 
+	float carSteeringSpeed = glm::radians(30.0f);
+	float carDampingSpeed = 1.5f; 
+	bool goStraightOnZ = false; 
+	bool goStraightOnX = false; 
 
 
 	
@@ -235,52 +244,98 @@ protected:
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
 		getSixAxis(deltaT, m, r, fire); 
-
+	
 		// Parameters for the Camera
 		constexpr float ROT_SPEED = glm::radians(120.0f);
 		constexpr float MOVE_SPEED = 2.0f;
-		const float STEERING_SPEED = glm::radians(30.0f);
 
-		steeringAng += -m.x * STEERING_SPEED * deltaT;
-		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
-			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
-
-
-
-		static float alpha   = M_PI;				// yaw
+		static float alpha = M_PI;				// yaw
 		static float beta = glm::radians(5.0f);     // pitch
-		static float camDist  = 10.0f;				// distance from the target
+		static float camDist = 10.0f;				// distance from the target
 
 		//Matrices setup 
 		glm::mat4 pMat = glm::perspective(FOVy, Ar, nearPlane, farPlane);	//Projection Matrix
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
 
+
+		/***************************************** MOTION OF THE CAR ****************************************************/
+		
+		steeringAng += -m.x * carSteeringSpeed * deltaT;
+		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
+			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
+		if (m.z != 0.0f) {
+			carVelocity += carAcceleration * deltaT;
+		}
+		else if (carVelocity > 0.0f) {
+			float nextValue = carVelocity - (carDecelerationEffect * deltaT); 
+			if (nextValue < 0) {
+				carVelocity = 0.0f; 
+			}
+			else {
+				carVelocity = nextValue; 
+			}
+		}
+ 
+
+		if (m.z != 0.0f) {
+			startingCarPos.z += carVelocity * deltaT * m.z * glm::cos(steeringAng);
+			startingCarPos.x += carVelocity * deltaT * m.z * glm::sin(steeringAng);
+		}
+		else {
+			if (goStraightOnZ) {
+				startingCarPos.z += carVelocity * deltaT * glm::cos(steeringAng);
+			}
+			else {
+				startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
+			}
+			if (goStraightOnX) {
+				startingCarPos.x += carVelocity * deltaT * glm::sin(steeringAng);
+			}
+			else {
+				startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
+			}
+		}
+
+		float oldPositionOnZ = startingCarPos.z;
+		float oldPositionOnX = startingCarPos.x; 
+		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
+		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
+
+		if (oldPositionOnZ - startingCarPos.z > 0) {
+			goStraightOnZ = true; 
+		}
+		else {
+			goStraightOnZ = false; 
+		}
+
+		if (oldPositionOnX - startingCarPos.x > 0) {
+			goStraightOnX = true; 
+		}
+		else {
+			goStraightOnX = false; 
+		}
+		/*******************************************END MOTION OF THE CAR ****************************************/
+		
+		
+		
 		//----------------Walk model procedure---------------- (In progress)
 		// Walk model procedure
-		
-		currCarPos.z += MOVE_SPEED * deltaT * m.z * glm::cos(steeringAng);
-		currCarPos.x += MOVE_SPEED * deltaT * m.z * glm::sin(steeringAng); 
-		
-		camPos = currCarPos + glm::vec3(0.0f, 2.0f, 5.0f); 
-
 		glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
 		glm::vec3 uy = glm::vec3(0,1,0);
 		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
 		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
 		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
-		
-		
 		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
 		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
 		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
 
 		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
 		//camPos = camTarget + cameraOffset;
-
-				
-		ViewMatrix = glm::lookAt(camPos, currCarPos, uy);
+		
+		camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
+		ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
 		vpMat = pMat * ViewMatrix; 
 		//glm::mat4 carModelMatrix = glm::translate(glm::mat4(1.0f), camTarget); // Example: translate to car's position
  
@@ -315,7 +370,7 @@ protected:
 
 		//Car
 		UniformBufferObject car_ubo{}; 
-		car_ubo.mMat = glm::translate(glm::mat4(1.0f), currCarPos) *
+		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 						glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
 		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
