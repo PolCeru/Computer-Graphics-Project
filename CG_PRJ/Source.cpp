@@ -282,7 +282,6 @@ protected:
 
 		static float alpha = M_PI;					// yaw
 		static float beta = glm::radians(5.0f);     // pitch
-		//static float rho = glm::radians(15.0f);  // 15 gradi di roll
 		static float camDist = 10.0f;				// distance from the target
 
 		//Matrices setup 
@@ -353,7 +352,7 @@ protected:
 		//Global
 		GlobalUniformBufferObject g_ubo{};
 		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.5f);
-		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		g_ubo.lightColor = glm::vec4(0.8f, 0.8f, 0.8f, 0.8f);
 		g_ubo.viewerPosition = camPos; 
 		DSGlobal.map(currentImage, &g_ubo, 0);
 		
