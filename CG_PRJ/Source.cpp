@@ -51,9 +51,9 @@ protected:
 	DescriptorSet DSenv, DScar; 
 
 	//Application Parameters
-	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0); //Camera Position (-l/+r, -d/+u, b/f)
-	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos); //View Matrix setup
-	glm::vec3 camTarget = glm::vec3(0.0, 0.0, 0.0); //Car Position
+	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0);					//Camera Position (-l/+r, -d/+u, b/f)
+	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos);   //View Matrix setup
+	glm::vec3 camTarget = glm::vec3(0.0, 0.0, 0.0);					//Car Position
 	const glm::vec3 CamTargetDelta = glm::vec3(0,2,0);
 
 	float Ar;
@@ -66,13 +66,11 @@ protected:
 	glm::vec3 updatedCarPos = glm::vec3(0.0f);
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
-	float carAcceleration = 1.0f;  // realistically it should depend on the acceleration of the car
-	float carDeceleration = 0.0f; // Not implemented the logic yer, but it should depend on the car brake
-	float carDecelerationEffect = 10.0f; //realistically it should depend on the surface attrition 
+	float carAcceleration = 1.0f;						// realistically it should depend on the acceleration of the car
+	float carDeceleration = 0.0f;						// Not implemented the logic yer, but it should depend on the car brake
+	float carDecelerationEffect = 10.0f;				//realistically it should depend on the surface attrition 
 	float carSteeringSpeed = glm::radians(30.0f);
-	float carDampingSpeed = 1.5f; 
-	bool goStraightOnZ = false; 
-	bool goStraightOnX = false; 
+	float carDampingSpeed = 1.5f;
 
 
 	
@@ -249,7 +247,7 @@ protected:
 		constexpr float ROT_SPEED = glm::radians(120.0f);
 		constexpr float MOVE_SPEED = 2.0f;
 
-		static float alpha = M_PI;				// yaw
+		static float alpha = M_PI;					// yaw
 		static float beta = glm::radians(5.0f);     // pitch
 		static float camDist = 10.0f;				// distance from the target
 
@@ -341,7 +339,7 @@ protected:
 
 		//Floor
 		UniformBufferObject floor_ubo{}; 
-		floor_ubo.mMat = glm::mat4(1.0f); //glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 0.1));
+		floor_ubo.mMat = glm::mat4(1.0f);
 		floor_ubo.mvpMat = vpMat * floor_ubo.mMat;
 		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat));;
 		DSenv.map(currentImage, &floor_ubo, 0);
