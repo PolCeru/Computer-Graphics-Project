@@ -1,6 +1,7 @@
 #include "modules/Starter.hpp"
 
 //Global
+// Direct Light
 struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 lightDir;
 	alignas(16) glm::vec4 lightColor;
@@ -22,9 +23,18 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
+
+
+//floor verte
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
+};
+
+struct CarVertex {
+	glm::vec3 pos;
+	glm::vec2 uv;
+	glm::vec3 normal; 
 };
 
 // MAIN ! 
@@ -143,21 +153,22 @@ protected:
 
 		//Car
 		VDcar.init(this, {
-				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+				{0, sizeof(CarVertex), VK_VERTEX_INPUT_RATE_VERTEX }
 			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV}
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(CarVertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(CarVertex, uv), sizeof(glm::vec2), UV},
+				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(CarVertex, normal), sizeof(glm::vec3), NORMAL},
 			});
 
 		//----------------Pipelines----------------
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLenv}); 
-		Pcar.init(this, &VDenv, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLcar}); 
+		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
 
 		//----------------Models----------------
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-		Mcar.init(this, &VDenv, "models/car.mgcg", MGCG);
+		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
 		Mfloor.init(this, &VDenv, "models/LargePlane.obj", OBJ);
 
 		//----------------Textures----------------
@@ -245,7 +256,8 @@ protected:
 		//Draw Car
 		Pcar.bind(commandBuffer); 
 		Mcar.bind(commandBuffer); 
-		DScar.bind(commandBuffer, Pcar, 0, currentImage); 
+		DSGlobal.bind(commandBuffer, Pcar, 0, currentImage); 
+		DScar.bind(commandBuffer, Pcar, 1, currentImage); 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
 		//Draw Floor
