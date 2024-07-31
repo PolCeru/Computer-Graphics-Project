@@ -5,7 +5,7 @@
 struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 lightDir;
 	alignas(16) glm::vec4 lightColor;
-	alignas(16) glm::vec3 eyePos;
+	alignas(16) glm::vec3 viewerPosition;
 };
 
 struct UniformBufferObject {
@@ -23,14 +23,13 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
-
-
-//floor verte
+//floor vertex
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
 };
 
+// Car vertex
 struct CarVertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
@@ -283,6 +282,7 @@ protected:
 
 		static float alpha = M_PI;					// yaw
 		static float beta = glm::radians(5.0f);     // pitch
+		//static float rho = glm::radians(15.0f);  // 15 gradi di roll
 		static float camDist = 10.0f;				// distance from the target
 
 		//Matrices setup 
@@ -352,9 +352,9 @@ protected:
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(1.0f);
-		g_ubo.lightColor = glm::vec4(1.0f);
-		g_ubo.eyePos = glm::vec3(1.0f);
+		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.5f);
+		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		g_ubo.viewerPosition = camPos; 
 		DSGlobal.map(currentImage, &g_ubo, 0);
 		
 		//Object Uniform Buffer creation
