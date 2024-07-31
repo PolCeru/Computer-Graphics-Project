@@ -1,6 +1,7 @@
 .vs
 .git
 x64
+CG_PRJ/a
 CG_PRJ/x64/Debug
 CG_PRJ/CG_PRJ.vcxproj
 CG_PRJ/CG_PRJ.vcxproj.filters
