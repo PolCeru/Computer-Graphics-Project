@@ -267,54 +267,22 @@ protected:
 		if (m.z != 0.0f) {
 			carVelocity += carAcceleration * deltaT;
 		}
-		else if (carVelocity > 0.0f) {
-			float nextValue = carVelocity - (carDecelerationEffect * deltaT); 
-			if (nextValue < 0) {
-				carVelocity = 0.0f; 
-			}
-			else {
-				carVelocity = nextValue; 
-			}
+		else {
+			carVelocity = glm::max(0.0f, carVelocity - (carDecelerationEffect * deltaT));
 		}
- 
-
 		if (m.z != 0.0f) {
 			startingCarPos.z += carVelocity * deltaT * m.z * glm::cos(steeringAng);
 			startingCarPos.x += carVelocity * deltaT * m.z * glm::sin(steeringAng);
 		}
 		else {
-			if (goStraightOnZ) {
-				startingCarPos.z += carVelocity * deltaT * glm::cos(steeringAng);
-			}
-			else {
-				startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
-			}
-			if (goStraightOnX) {
-				startingCarPos.x += carVelocity * deltaT * glm::sin(steeringAng);
-			}
-			else {
-				startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
-			}
+			startingCarPos.z += carVelocity * deltaT * glm::cos(steeringAng);
+			startingCarPos.x += carVelocity * deltaT * glm::sin(steeringAng);
 		}
-
-		float oldPositionOnZ = startingCarPos.z;
-		float oldPositionOnX = startingCarPos.x; 
+	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
 
-		if (oldPositionOnZ - startingCarPos.z > 0) {
-			goStraightOnZ = true; 
-		}
-		else {
-			goStraightOnZ = false; 
-		}
-
-		if (oldPositionOnX - startingCarPos.x > 0) {
-			goStraightOnX = true; 
-		}
-		else {
-			goStraightOnX = false; 
-		}
+	
 		/*******************************************END MOTION OF THE CAR ****************************************/
 		
 		
@@ -362,11 +330,6 @@ protected:
 		skyBoxUniformBufferObject sb_ubo{};
 		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
-
-
-
-		
-
 
 		//Car
 		UniformBufferObject car_ubo{}; 
