@@ -31,5 +31,5 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 void main() {
     vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNormal);
-	outColor = vec4(BRDF(texColor, gubo.lightDir, normal, gubo.viewerPosition), 1.0f);
+	outColor = vec4(gubo.lightColor.rgb * BRDF(texColor, gubo.lightDir, normal, gubo.viewerPosition), 1.0f);
 }
