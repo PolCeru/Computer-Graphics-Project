@@ -46,9 +46,16 @@ protected:
 	DescriptorSetLayout DSLenv; 
 	VertexDescriptor VDenv; 
 	Pipeline Penv; 
-	Model Mcar, Mfloor; 
+	Model Mfloor; 
 	Texture Tenv; 
-	DescriptorSet DSenv, DScar; 
+	DescriptorSet DSenv; 
+
+	//Car 
+	DescriptorSetLayout DSLcar; 
+	VertexDescriptor VDcar; 
+	Pipeline Pcar; 
+	Model Mcar;
+	DescriptorSet DScar; 
 
 	//Application Parameters
 	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0);					//Camera Position (-l/+r, -d/+u, b/f)
@@ -71,8 +78,6 @@ protected:
 	float carDecelerationEffect = 10.0f;				//realistically it should depend on the surface attrition 
 	float carSteeringSpeed = glm::radians(30.0f);
 	float carDampingSpeed = 1.5f;
-
-
 	
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -114,6 +119,12 @@ protected:
 				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
 		});
 
+		//Car
+		DSLcar.init(this, {
+				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
+				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
+		});
+
 		//----------------Vertex Descriptor----------------
 		//Skybox
 		VDSkyBox.init(this, {
@@ -130,12 +141,19 @@ protected:
 				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV}
 			});
 
+		//Car
+		VDcar.init(this, {
+				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+			}, {
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV}
+			});
+
 		//----------------Pipelines----------------
-		//SkyBox
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
-		// Environment	
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLenv}); 
+		Pcar.init(this, &VDenv, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLcar}); 
 
 		//----------------Models----------------
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
@@ -162,12 +180,13 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DScar.init(this, &DSLenv, {&Tenv}); 
 		DSenv.init(this, &DSLenv, {&Tenv}); 
+		DScar.init(this, &DSLenv, {&Tenv}); 
 		
 		//Pipeline Creation
 		PSkyBox.create();
 		Penv.create();
+		Pcar.create();
 	}
 
 	// Here you destroy your pipelines and Descriptor Sets!
@@ -176,6 +195,7 @@ protected:
 		//Pipelines Cleanup
 		PSkyBox.cleanup();
 		Penv.cleanup();
+		Pcar.cleanup();
 
 		//Descriptor Set Cleanup
 		DSGlobal.cleanup();
@@ -197,17 +217,19 @@ protected:
 
 		//Models Cleanup
 		MSkyBox.cleanup();
-		Mcar.cleanup(); 
 		Mfloor.cleanup();
+		Mcar.cleanup(); 
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
 		DSLSkyBox.cleanup();
 		DSLenv.cleanup();
+		DSLcar.cleanup();
 		
 		//Pipelines destruction
 		PSkyBox.destroy();
 		Penv.destroy(); 
+		Pcar.destroy();
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -221,9 +243,9 @@ protected:
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MSkyBox.indices.size()), 1, 0, 0, 0);
 
 		//Draw Car
-		Penv.bind(commandBuffer); 
+		Pcar.bind(commandBuffer); 
 		Mcar.bind(commandBuffer); 
-		DScar.bind(commandBuffer, Penv, 0, currentImage); 
+		DScar.bind(commandBuffer, Pcar, 0, currentImage); 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
 		//Draw Floor
