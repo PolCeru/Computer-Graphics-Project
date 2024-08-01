@@ -23,14 +23,7 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
-//floor vertex
 struct Vertex {
-	glm::vec3 pos;
-	glm::vec2 uv;
-};
-
-// Car vertex
-struct CarVertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
 	glm::vec3 normal; 
@@ -69,8 +62,6 @@ protected:
 	//Application Parameters
 	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0);					//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos);   //View Matrix setup
-	glm::vec3 camTarget = glm::vec3(0.0, 0.0, 0.0);					//Car Position
-	const glm::vec3 CamTargetDelta = glm::vec3(0,2,0);
 
 	float Ar;
 	float FOVy = glm::radians(60.0f);
@@ -93,14 +84,14 @@ protected:
 		// window size, titile and initial background
 		windowWidth = 800;
 		windowHeight = 600;
-		windowTitle = "A10 - Adding an object";
+		windowTitle = "CG_PRJ";
     	windowResizable = GLFW_TRUE;
 		initialBackgroundColor = {0.1f, 0.1f, 0.1f, 1.0f};
 		
 		Ar = (float)windowWidth / (float)windowHeight;
 	}
 	
-	// What to do when the window changes size
+	// Window resize callback
 	void onWindowResize(int w, int h) {
 		std::cout << "Window resized to: " << w << " x " << h << "\n";
 		Ar = (float)w / (float)h;
@@ -147,22 +138,23 @@ protected:
 				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 			}, {
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV}
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
 			});
 
 		//Car
 		VDcar.init(this, {
-				{0, sizeof(CarVertex), VK_VERTEX_INPUT_RATE_VERTEX }
+				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(CarVertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(CarVertex, uv), sizeof(glm::vec2), UV},
-				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(CarVertex, normal), sizeof(glm::vec3), NORMAL},
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
 			});
 
 		//----------------Pipelines----------------
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
-		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLenv}); 
+		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLenv}); 
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
 
 		//----------------Models----------------
@@ -191,7 +183,7 @@ protected:
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
 		DSenv.init(this, &DSLenv, {&Tenv}); 
-		DScar.init(this, &DSLenv, {&Tenv}); 
+		DScar.init(this, &DSLcar, {&Tenv}); 
 		
 		//Pipeline Creation
 		PSkyBox.create();
@@ -262,7 +254,8 @@ protected:
 		//Draw Floor
 		Penv.bind(commandBuffer); 
 		Mfloor.bind(commandBuffer); 
-		DSenv.bind(commandBuffer, Penv, 0, currentImage); 
+		DSGlobal.bind(commandBuffer, Penv, 0, currentImage); 
+		DSenv.bind(commandBuffer, Penv, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), 1, 0, 0, 0);
 	}
 
@@ -290,7 +283,7 @@ protected:
 		glm::mat4 vpMat;													//View Projection Matrix
 
 
-		/***************************************** MOTION OF THE CAR ****************************************************/
+		/************************************* MOTION OF THE CAR *************************************/
 		
 		steeringAng += -m.x * carSteeringSpeed * deltaT;
 		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
@@ -312,6 +305,7 @@ protected:
 	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
+		/************************************* END MOTION OF THE CAR *************************************/
 
 	
 		/*******************************************END MOTION OF THE CAR ****************************************/
