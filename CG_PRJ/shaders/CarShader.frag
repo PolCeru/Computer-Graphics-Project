@@ -6,7 +6,7 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 viewerPosition; 
 } gubo; 
 
-layout(set = 1, binding = 1) uniform sampler2D floorTexture;
+layout(set = 1, binding = 1) uniform sampler2D carTexture;
 
 layout(location = 0) in vec2 fragTexCoord; // Interpolated texture coordinate
 layout(location = 1) in vec3 fragNormal; 
@@ -29,7 +29,7 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 
 
 void main() {
-    vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
+    vec3 texColor = texture(carTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNormal);
 	outColor = vec4(gubo.lightColor.rgb * BRDF(texColor, gubo.lightDir, normal, gubo.viewerPosition), 1.0f);
 }
