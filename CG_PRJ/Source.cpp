@@ -1,5 +1,5 @@
 #include "modules/Starter.hpp"
-#define STRAIGHT_ROAD_DIM 1
+#define STRAIGHT_ROAD_DIM 3
 
 //Global
 // Direct Light
@@ -368,7 +368,8 @@ protected:
 		//Floor
 		SraightRoadUniformBufferObject floor_ubo{};
 		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
-			floor_ubo.mMat[i] = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
+			floor_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) * 
+								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
 			floor_ubo.mMat[i] = glm::translate(floor_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
 			floor_ubo.mvpMat[i] = vpMat * floor_ubo.mMat[i];
 			floor_ubo.nMat[i] = glm::transpose(glm::inverse(floor_ubo.mMat[i]));;
