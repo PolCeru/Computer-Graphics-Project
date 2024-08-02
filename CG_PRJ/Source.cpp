@@ -11,7 +11,7 @@ struct GlobalUniformBufferObject {
 
 
 //Car uniform object
-struct CarUniformBufferObject {
+struct UniformBufferObject {
 	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
 	alignas(16) glm::mat4 mMat;   //Model/World Matrix
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
@@ -40,6 +40,10 @@ struct Vertex {
 	glm::vec3 normal;
 };
 
+struct FloorVertex {
+	glm::vec3 pos; 
+};
+
 // MAIN ! 
 class A10 : public BaseProject {
 protected:
@@ -59,8 +63,8 @@ protected:
 	DescriptorSetLayout DSLenv; 
 	VertexDescriptor VDenv; 
 	Pipeline Penv; 
-	Model Mfloor; 
-	Texture Tstraight; 
+	Model Menv; 
+	Texture Tenv; 
 	DescriptorSet DSenv; 
 
 	//Car 
@@ -68,8 +72,13 @@ protected:
 	VertexDescriptor VDcar; 
 	Pipeline Pcar; 
 	Model Mcar;
-	Texture Tcar; 
 	DescriptorSet DScar; 
+
+	//Floor 
+	VertexDescriptor VDfloor; 
+	Pipeline Pfloor; 
+	Model Mfloor; 
+
 
 	//Application Parameters
 	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0);					//Camera Position (-l/+r, -d/+u, b/f)
@@ -115,6 +124,7 @@ protected:
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1},
 					{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(SraightRoadUniformBufferObject), 1},
+					{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1} // FLOOR
 			});
 
 
@@ -132,7 +142,7 @@ protected:
 
 		//Car
 		DSLcar.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(CarUniformBufferObject), 1},
+				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
 				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
 		});
 
@@ -162,26 +172,34 @@ protected:
 				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
 			});
 
+		//Floor 
+		VDfloor.init(this, {
+				{0, sizeof(FloorVertex), VK_VERTEX_INPUT_RATE_VERTEX}
+			}, {
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(FloorVertex, pos), sizeof(glm::vec3), POSITION}, 
+			}); 
+
 		//----------------Pipelines----------------
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLenv}); 
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
+		Pfloor.init(this, &VDfloor, "shaders/FloorVert.spv", "shaders/FloorFrag.spv", { &DSLGlobal }); 
 
 		//----------------Models----------------
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
 		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-		Mfloor.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+		Menv.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+		Mfloor.init(this, &VDfloor, "models/LargePlane.obj", OBJ); 
 
 
 		//----------------Textures----------------
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
-		Tcar.init(this, "textures/Textures_City.png"); 
+		Tenv.init(this, "textures/Textures_City.png"); 
 		TStars.init(this, "textures/constellation_figures.png");
-		Tstraight.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
-		DPSZs.uniformBlocksInPool = 4;												//# of uniform buffers  (Global, SkyBox, Uniform, Car)
+		DPSZs.uniformBlocksInPool = 5;												//# of uniform buffers  (Global, SkyBox, Uniform, Car)
 		DPSZs.texturesInPool = 4;	//forse sono solo 3 + 1		//# of textures (SkyBox, Stars, Environment, Car)
 		DPSZs.setsInPool = 4;  														//# of DS (Global, SkyBox, Environment, Car)
 		
@@ -195,13 +213,14 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DSenv.init(this, &DSLenv, {&Tstraight}); 
-		DScar.init(this, &DSLcar, {&Tcar});  
+		DSenv.init(this, &DSLenv, {&Tenv}); 
+		DScar.init(this, &DSLcar, {&Tenv});  
 		
 		//Pipeline Creation
 		PSkyBox.create();
 		Penv.create();
 		Pcar.create();
+		Pfloor.create(); 
 	}
 
 	// Here you destroy your pipelines and Descriptor Sets!
@@ -211,6 +230,7 @@ protected:
 		PSkyBox.cleanup();
 		Penv.cleanup();
 		Pcar.cleanup();
+		Pfloor.cleanup(); 
 
 		//Descriptor Set Cleanup
 		DSGlobal.cleanup();
@@ -228,13 +248,13 @@ protected:
 		//Textures Cleanup
 		TSkyBox.cleanup();
 		TStars.cleanup();
-		Tstraight.cleanup();
-		Tcar.cleanup(); 
+		Tenv.cleanup(); 
 
 		//Models Cleanup
 		MSkyBox.cleanup();
-		Mfloor.cleanup(); 
+		Menv.cleanup(); 
 		Mcar.cleanup(); 
+		Mfloor.cleanup(); 
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
@@ -246,6 +266,7 @@ protected:
 		PSkyBox.destroy();
 		Penv.destroy(); 
 		Pcar.destroy();
+		Pfloor.destroy(); 
 	}
 	
 	// Here it is the creation of the command buffer:
@@ -265,12 +286,19 @@ protected:
 		DScar.bind(commandBuffer, Pcar, 1, currentImage); 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
-		//Draw Floor
+		//Draw Env
 		Penv.bind(commandBuffer); 
-		Mfloor.bind(commandBuffer); 
+		Menv.bind(commandBuffer); 
 		DSGlobal.bind(commandBuffer, Penv, 0, currentImage); 
 		DSenv.bind(commandBuffer, Penv, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), STRAIGHT_ROAD_DIM, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv.indices.size()), STRAIGHT_ROAD_DIM, 0, 0, 0);
+
+		//Draw Floor 
+		Pfloor.bind(commandBuffer); 
+		Mfloor.bind(commandBuffer); 
+		DSGlobal.bind(commandBuffer, Pfloor, 0, currentImage); 
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), 1, 0, 0, 0);
+
 	}
 
 	// Here is where you update the uniforms.
@@ -358,7 +386,7 @@ protected:
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
 		//Car
-		CarUniformBufferObject car_ubo{}; 
+		UniformBufferObject car_ubo{}; 
 		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
@@ -366,16 +394,21 @@ protected:
 		DScar.map(currentImage, &car_ubo, 0);
 
 		//Floor
-		SraightRoadUniformBufferObject floor_ubo{};
+		SraightRoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
-			floor_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) * 
+			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) *
 								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
-			floor_ubo.mMat[i] = glm::translate(floor_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
-			floor_ubo.mvpMat[i] = vpMat * floor_ubo.mMat[i];
-			floor_ubo.nMat[i] = glm::transpose(glm::inverse(floor_ubo.mMat[i]));;
+			straight_road_ubo.mMat[i] = glm::translate(straight_road_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
+			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
+			straight_road_ubo.nMat[i] = glm::transpose(glm::inverse(straight_road_ubo.mMat[i]));;
 		}
+		DSGlobal.map(currentImage, &straight_road_ubo, 1);
 
-		DSGlobal.map(currentImage, &floor_ubo, 1);
+		UniformBufferObject floor_ubo{}; 
+		floor_ubo.mMat = glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
+		floor_ubo.mvpMat = vpMat * floor_ubo.mMat; 
+		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat)); 
+		DSGlobal.map(currentImage, &floor_ubo, 2); 
 	}
 };
 
