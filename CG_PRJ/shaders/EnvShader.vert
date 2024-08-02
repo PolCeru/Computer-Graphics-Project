@@ -1,10 +1,10 @@
 #version 450
 
-layout(set = 0, binding = 1) uniform UniformBufferObject {
-	mat4 mvpMat;
-	mat4 mMat;
-	mat4 nMat;
-} ubo;
+layout(set = 0, binding = 1) uniform SraightRoadUniformBufferObject {
+	mat4 mvpMat[1];
+	mat4 mMat[1];
+	mat4 nMat[1];
+} srubo;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec2 inUV;
@@ -15,8 +15,9 @@ layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec3 fragNorm; 
 
 void main() {
-	gl_Position = ubo.mvpMat * vec4(inPosition, 1.0);
-	fragPos = (ubo.mMat * vec4(inPosition, 1.0)).xyz;
+	int i = gl_InstanceIndex ;
+	gl_Position = srubo.mvpMat[i] * vec4(inPosition, 1.0);
+	fragPos = (srubo.mMat[i] * vec4(inPosition, 1.0)).xyz;
 	fragTexCoord = inUV;
-	fragNorm = (ubo.nMat * vec4(inNormal, 0.0)).xyz;
+	fragNorm = (srubo.nMat[i] * vec4(inNormal, 0.0)).xyz;
 }

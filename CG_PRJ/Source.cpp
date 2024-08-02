@@ -1,4 +1,5 @@
 #include "modules/Starter.hpp"
+#define STRAIGHT_ROAD_DIM 1
 
 //Global
 // Direct Light
@@ -8,11 +9,21 @@ struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 viewerPosition;
 };
 
-struct UniformBufferObject {
+
+//Car uniform object
+struct CarUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
 	alignas(16) glm::mat4 mMat;   //Model/World Matrix
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
 };
+
+//Floor uniform objects
+struct SraightRoadUniformBufferObject {
+	alignas(16) glm::mat4 mvpMat[STRAIGHT_ROAD_DIM];
+	alignas(16) glm::mat4 mMat[STRAIGHT_ROAD_DIM];
+	alignas(16) glm::mat4 nMat[STRAIGHT_ROAD_DIM];
+};
+
 
 //Skybox
 struct skyBoxUniformBufferObject {
@@ -49,7 +60,7 @@ protected:
 	VertexDescriptor VDenv; 
 	Pipeline Penv; 
 	Model Mfloor; 
-	Texture Tenv; 
+	Texture Tstraight; 
 	DescriptorSet DSenv; 
 
 	//Car 
@@ -57,6 +68,7 @@ protected:
 	VertexDescriptor VDcar; 
 	Pipeline Pcar; 
 	Model Mcar;
+	Texture Tcar; 
 	DescriptorSet DScar; 
 
 	//Application Parameters
@@ -102,8 +114,9 @@ protected:
 		//Global
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1},
-					{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
+					{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(SraightRoadUniformBufferObject), 1},
 			});
+
 
 		//Skybox
 		DSLSkyBox.init(this, {
@@ -119,7 +132,7 @@ protected:
 
 		//Car
 		DSLcar.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
+				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(CarUniformBufferObject), 1},
 				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
 		});
 
@@ -158,17 +171,19 @@ protected:
 		//----------------Models----------------
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
 		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-		Mfloor.init(this, &VDenv, "models/LargePlane.obj", OBJ);
+		Mfloor.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+
 
 		//----------------Textures----------------
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
+		Tcar.init(this, "textures/Textures_City.png"); 
 		TStars.init(this, "textures/constellation_figures.png");
-		Tenv.init(this, "textures/Textures_City.png");
+		Tstraight.init(this, "textures/Textures_City.png");
 		
 		// Descriptor pool sizes
-		DPSZs.uniformBlocksInPool = 4;	//# of uniform buffers  (Global, SkyBox, Uniform, Car)
-		DPSZs.texturesInPool = 4;		//# of textures			(SkyBox, Stars, Environment, Car)
-		DPSZs.setsInPool = 4;  			//# of DS				(Global, SkyBox, Environment, Car)
+		DPSZs.uniformBlocksInPool = 4;												//# of uniform buffers  (Global, SkyBox, Uniform, Car)
+		DPSZs.texturesInPool = 4;	//forse sono solo 3 + 1		//# of textures (SkyBox, Stars, Environment, Car)
+		DPSZs.setsInPool = 4;  														//# of DS (Global, SkyBox, Environment, Car)
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -180,8 +195,8 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DSenv.init(this, &DSLenv, {&Tenv}); 
-		DScar.init(this, &DSLcar, {&Tenv}); 
+		DSenv.init(this, &DSLenv, {&Tstraight}); 
+		DScar.init(this, &DSLcar, {&Tcar});  
 		
 		//Pipeline Creation
 		PSkyBox.create();
@@ -213,11 +228,12 @@ protected:
 		//Textures Cleanup
 		TSkyBox.cleanup();
 		TStars.cleanup();
-		Tenv.cleanup();
+		Tstraight.cleanup();
+		Tcar.cleanup(); 
 
 		//Models Cleanup
 		MSkyBox.cleanup();
-		Mfloor.cleanup();
+		Mfloor.cleanup(); 
 		Mcar.cleanup(); 
 
 		//Descriptor Set Layouts Cleanup
@@ -254,7 +270,7 @@ protected:
 		Mfloor.bind(commandBuffer); 
 		DSGlobal.bind(commandBuffer, Penv, 0, currentImage); 
 		DSenv.bind(commandBuffer, Penv, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mfloor.indices.size()), STRAIGHT_ROAD_DIM, 0, 0, 0);
 	}
 
 	// Here is where you update the uniforms.
@@ -331,7 +347,7 @@ protected:
 		//Global
 		GlobalUniformBufferObject g_ubo{};
 		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.5f);
-		g_ubo.lightColor = glm::vec4(0.8f, 0.8f, 0.8f, 0.8f);
+		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = camPos; 
 		DSGlobal.map(currentImage, &g_ubo, 0);
 		
@@ -342,7 +358,7 @@ protected:
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
 		//Car
-		UniformBufferObject car_ubo{}; 
+		CarUniformBufferObject car_ubo{}; 
 		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
@@ -350,10 +366,14 @@ protected:
 		DScar.map(currentImage, &car_ubo, 0);
 
 		//Floor
-		UniformBufferObject floor_ubo{}; 
-		floor_ubo.mMat = glm::mat4(1.0f);
-		floor_ubo.mvpMat = vpMat * floor_ubo.mMat;
-		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat));;
+		SraightRoadUniformBufferObject floor_ubo{};
+		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
+			floor_ubo.mMat[i] = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
+			floor_ubo.mMat[i] = glm::translate(floor_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
+			floor_ubo.mvpMat[i] = vpMat * floor_ubo.mMat[i];
+			floor_ubo.nMat[i] = glm::transpose(glm::inverse(floor_ubo.mMat[i]));;
+		}
+
 		DSGlobal.map(currentImage, &floor_ubo, 1);
 	}
 };

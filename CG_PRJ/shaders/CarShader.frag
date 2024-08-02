@@ -22,14 +22,14 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	
 	vec3 viewerDirection = normalize(viewerPostion - fragPos); 
 	vec3 halfVector = normalize(lightDir + viewerDirection); 
-	specular = texColor * pow(max(dot(normal, halfVector), 0.0), 40.0); //BLINN 
+	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); //BLINN 
 	
-	return diffuse; 
+	return diffuse + specular; 
 } 
 
 
 void main() {
     vec3 texColor = texture(carTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNormal);
-	outColor = vec4(gubo.lightColor.rgb * BRDF(texColor, gubo.lightDir, normal, gubo.viewerPosition), 1.0f);
+	outColor = vec4(gubo.lightColor.rgb * BRDF(texColor, normalize(gubo.lightDir), normal, gubo.viewerPosition), 1.0f);
 }
