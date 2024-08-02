@@ -1,9 +1,10 @@
 #version 450
 
+
 layout(set = 0, binding = 1) uniform SraightRoadUniformBufferObject {
-	mat4 mvpMat[1];
-	mat4 mMat[1];
-	mat4 nMat[1];
+	mat4 mvpMat[5];
+	mat4 mMat[5];
+	mat4 nMat[5];
 } srubo;
 
 layout(location = 0) in vec3 inPosition;

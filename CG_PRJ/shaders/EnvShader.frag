@@ -23,8 +23,12 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	//Blinn
 	vec3 viewerDirection = normalize(viewerPostion - fragPos); 
 	vec3 halfVector = normalize(lightDir + viewerDirection); 
-	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); 	
-	return diffuse + specular; 
+	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); 
+
+	vec3 ambient = texColor * 0.025f;
+
+	
+	return diffuse + specular + ambient; 
 } 
 
 

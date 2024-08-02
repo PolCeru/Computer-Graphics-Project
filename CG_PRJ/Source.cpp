@@ -1,5 +1,5 @@
 #include "modules/Starter.hpp"
-#define STRAIGHT_ROAD_DIM 3
+#define STRAIGHT_ROAD_DIM 5
 
 //Global
 // Direct Light
@@ -18,7 +18,7 @@ struct UniformBufferObject {
 };
 
 //Floor uniform objects
-struct SraightRoadUniformBufferObject {
+struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat[STRAIGHT_ROAD_DIM];
 	alignas(16) glm::mat4 mMat[STRAIGHT_ROAD_DIM];
 	alignas(16) glm::mat4 nMat[STRAIGHT_ROAD_DIM];
@@ -123,7 +123,7 @@ protected:
 		//Global
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1},
-					{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(SraightRoadUniformBufferObject), 1},
+					{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1},
 					{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1} // FLOOR
 			});
 
@@ -183,6 +183,7 @@ protected:
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLenv}); 
+		//Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_AND_BACK, false);
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
 		Pfloor.init(this, &VDfloor, "shaders/FloorVert.spv", "shaders/FloorFrag.spv", { &DSLGlobal }); 
 
@@ -374,7 +375,7 @@ protected:
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.5f);
+		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.0f);
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = camPos; 
 		DSGlobal.map(currentImage, &g_ubo, 0);
@@ -390,24 +391,24 @@ protected:
 		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
-		car_ubo.nMat = glm::transpose(glm::inverse(car_ubo.mMat));
+		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
 		//Floor
-		SraightRoadUniformBufferObject straight_road_ubo{};
+		RoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) *
 								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
 			straight_road_ubo.mMat[i] = glm::translate(straight_road_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
-			straight_road_ubo.nMat[i] = glm::transpose(glm::inverse(straight_road_ubo.mMat[i]));;
+			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));;
 		}
 		DSGlobal.map(currentImage, &straight_road_ubo, 1);
 
 		UniformBufferObject floor_ubo{}; 
-		floor_ubo.mMat = glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 1.0f, 10.0f));
+		floor_ubo.mMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1000.0f, 0.0f));
 		floor_ubo.mvpMat = vpMat * floor_ubo.mMat; 
-		floor_ubo.nMat = glm::transpose(glm::inverse(floor_ubo.mMat)); 
+		floor_ubo.nMat = glm::inverse(glm::transpose(floor_ubo.mMat)); 
 		DSGlobal.map(currentImage, &floor_ubo, 2); 
 	}
 };
