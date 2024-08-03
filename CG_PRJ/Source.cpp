@@ -1,5 +1,5 @@
 #include "modules/Starter.hpp"
-#define STRAIGHT_ROAD_DIM 5
+#define ROAD_DIM 5
 
 //Global
 // Direct Light
@@ -19,9 +19,9 @@ struct UniformBufferObject {
 
 //Floor uniform objects
 struct RoadUniformBufferObject {
-	alignas(16) glm::mat4 mvpMat[STRAIGHT_ROAD_DIM];
-	alignas(16) glm::mat4 mMat[STRAIGHT_ROAD_DIM];
-	alignas(16) glm::mat4 nMat[STRAIGHT_ROAD_DIM];
+	alignas(16) glm::mat4 mvpMat[ROAD_DIM];
+	alignas(16) glm::mat4 mMat[ROAD_DIM];
+	alignas(16) glm::mat4 nMat[ROAD_DIM];
 };
 
 
@@ -71,10 +71,7 @@ protected:
 	Model Mcar;
 	DescriptorSet DScar; 
 
-	//Floor 
-	VertexDescriptor VDfloor; 
-	Pipeline Pfloor; 
-	Model Mfloor; 
+
 
 
 	//Application Parameters
@@ -276,7 +273,7 @@ protected:
 		Menv.bind(commandBuffer); 
 		DSGlobal.bind(commandBuffer, Penv, 0, currentImage); 
 		DSenv.bind(commandBuffer, Penv, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv.indices.size()), STRAIGHT_ROAD_DIM, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv.indices.size()), ROAD_DIM, 0, 0, 0);
 
 	}
 
@@ -338,16 +335,16 @@ protected:
 		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
 		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
-		camPos -= ux * MOVE_SPEED * m.x * deltaT;
+		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
 		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
-		camPos -= uz * MOVE_SPEED * m.z * deltaT; 
+		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
 
 		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
 		//camPos = camTarget + cameraOffset;
 		
-		//camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
-		//ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
-		ViewMatrix = glm::translate(glm::mat4(1), -camPos);
+		camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
+		ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
+		//ViewMatrix = glm::translate(glm::mat4(1), -camPos);
 		vpMat = pMat * ViewMatrix; 
 		//----------------------------------------------------
 
@@ -376,7 +373,7 @@ protected:
 
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
-		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
+		for (int i = 0; i < ROAD_DIM; i++) {
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) *
 								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
