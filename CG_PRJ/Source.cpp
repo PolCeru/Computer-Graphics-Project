@@ -377,8 +377,7 @@ protected:
 		RoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) *
-								glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0, 1, 0));
-			//straight_road_ubo.mMat[i] = glm::mat4(1.0f); 
+								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));;
 		}
