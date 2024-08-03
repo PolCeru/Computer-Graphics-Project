@@ -18,12 +18,13 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	vec3 diffuse, specular; 
 
 	//Lambert
-	diffuse = abs(texColor * dot(normal, lightDir)); 
+	diffuse = texColor * max(dot(normal, lightDir), 0.0); 
+	//diffuse = abs(texColor * dot(normal, lightDir)); 
 	
 	//Blinn
 	vec3 viewerDirection = normalize(viewerPostion - fragPos); 
 	vec3 halfVector = normalize(lightDir + viewerDirection); 
-	specular = vec3(pow(abs(dot(normal, halfVector)), 40.0)); 
+	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); 
 
 	return diffuse + specular; 
 } 
@@ -32,5 +33,5 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 void main() {
     vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNorm);
-	fragColor = vec4(gubo.lightColor.rgb * BRDF(texColor, normalize(gubo.lightDir), normal, gubo.viewerPosition), 1.0f);
+	fragColor = vec4(gubo.lightColor.rgb * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition), 1.0f);
 }

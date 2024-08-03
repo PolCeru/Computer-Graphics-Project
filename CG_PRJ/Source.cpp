@@ -338,15 +338,16 @@ protected:
 		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
 		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
-		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
+		camPos -= ux * MOVE_SPEED * m.x * deltaT;
 		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
-		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
+		camPos -= uz * MOVE_SPEED * m.z * deltaT; 
 
 		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
 		//camPos = camTarget + cameraOffset;
 		
-		camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
-		ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
+		//camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
+		//ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
+		ViewMatrix = glm::translate(glm::mat4(1), -camPos);
 		vpMat = pMat * ViewMatrix; 
 		//----------------------------------------------------
 
