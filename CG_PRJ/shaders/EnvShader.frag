@@ -25,10 +25,7 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	vec3 halfVector = normalize(lightDir + viewerDirection); 
 	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); 
 
-	vec3 ambient = texColor * 0.025f;
-
-	
-	return diffuse + specular + ambient; 
+	return diffuse + specular; 
 } 
 
 

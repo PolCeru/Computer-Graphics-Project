@@ -20,5 +20,5 @@ void main() {
 	gl_Position = srubo.mvpMat[i] * vec4(inPosition, 1.0);
 	fragPos = (srubo.mMat[i] * vec4(inPosition, 1.0)).xyz;
 	fragTexCoord = inUV;
-	fragNorm = (srubo.nMat[i] * vec4(inNormal, 0.0)).xyz;
+	fragNorm = mat3(srubo.nMat[i]) * vec3(1.0f, 1.0f, 1.0f);
 }

@@ -18,7 +18,7 @@ layout(location = 0) out vec4 outColor; // Output color
 vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	vec3 diffuse; 
 	vec3 specular; 
-	diffuse = texColor * max(dot(lightDir, normal), 0.0f);  //Lambert
+	diffuse = texColor * max(dot(normal, lightDir), 0.0f);  //Lambert
 	
 	vec3 viewerDirection = normalize(viewerPostion - fragPos); 
 	vec3 halfVector = normalize(lightDir + viewerDirection); 

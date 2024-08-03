@@ -81,7 +81,7 @@ protected:
 
 
 	//Application Parameters
-	glm::vec3 camPos = glm::vec3(0.0, 2.0, 15.0);					//Camera Position (-l/+r, -d/+u, b/f)
+	glm::vec3 camPos = glm::vec3(0.0, 2.0, -15.0);					//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos);   //View Matrix setup
 
 	float Ar;
@@ -183,7 +183,8 @@ protected:
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLenv}); 
-		//Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_AND_BACK, false);
+		Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+		//Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
 		Pfloor.init(this, &VDfloor, "shaders/FloorVert.spv", "shaders/FloorFrag.spv", { &DSLGlobal }); 
 
@@ -376,8 +377,9 @@ protected:
 		//Global
 		GlobalUniformBufferObject g_ubo{};
 		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.0f);
+		//g_ubo.lightDir = glm::vec3(0.0f, 10.0f, -20.0f);
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		g_ubo.viewerPosition = camPos; 
+		g_ubo.viewerPosition = glm::vec3(glm::inverse(ViewMatrix) * glm::vec4(0, 0, 0, 1));
 		DSGlobal.map(currentImage, &g_ubo, 0);
 		
 		//Object Uniform Buffer creation
@@ -398,8 +400,8 @@ protected:
 		RoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < STRAIGHT_ROAD_DIM; i++) {
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -11.0f * i)) *
-								glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
-			straight_road_ubo.mMat[i] = glm::translate(straight_road_ubo.mMat[i], glm::vec3(i * 5.0f, 0.0f, 0.0f));
+								glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0, 1, 0));
+			//straight_road_ubo.mMat[i] = glm::mat4(1.0f); 
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));;
 		}
