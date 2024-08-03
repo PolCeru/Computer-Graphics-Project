@@ -71,29 +71,35 @@ protected:
 	Model Mcar;
 	DescriptorSet DScar; 
 
-
-
-
-	//Application Parameters
-	glm::vec3 camPos = glm::vec3(0.0, 2.0, -15.0);					//Camera Position (-l/+r, -d/+u, b/f)
-	glm::mat4 ViewMatrix = glm::translate(glm::mat4(1), -camPos);   //View Matrix setup
-
-	float Ar;
+	float ar;
 	float FOVy = glm::radians(60.0f);
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
 
+	// Parameters for the Camera
+	float alpha = M_PI;					// yaw
+	float beta = glm::radians(5.0f);    // pitch
+	//static float rho = 0.0f;			// roll
+	float camDist = 7.0f;				// distance from the target
+	float camHeight = 2.0f;				// height from the target
+
+	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);					//Camera Position (-l/+r, -d/+u, b/f)
+	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
+	glm::vec3 upVector = glm::vec3(0, 1, 0);							//Up Vector
+
 	/******* CAR PARAMETERS *******/
 	glm::vec3 startingCarPos = glm::vec3(0.0f);
 	glm::vec3 updatedCarPos = glm::vec3(0.0f);
+	const float ROT_SPEED = glm::radians(120.0f);
+	const float MOVE_SPEED = 2.0f;
+	const float carAcceleration = 2.0f;						// realistically it should depend on the acceleration of the car
+	const float carDecelerationEffect = 10.0f;				// realistically it should depend on the surface attrition 
+	const float carSteeringSpeed = glm::radians(60.0f);
+	const float carDampingSpeed = 1.5f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
-	float carAcceleration = 1.0f;						// realistically it should depend on the acceleration of the car
-	float carDeceleration = 0.0f;						// Not implemented the logic yer, but it should depend on the car brake
-	float carDecelerationEffect = 10.0f;				//realistically it should depend on the surface attrition 
-	float carSteeringSpeed = glm::radians(30.0f);
-	float carDampingSpeed = 1.5f;
-	
+	float carDeceleration = 0.0f;						// Not implemented the logic yet, but it should depend on the car brake
+
 	// Here you set the main application parameters
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -102,12 +108,12 @@ protected:
 		windowTitle = "CG_PRJ";
     	windowResizable = GLFW_TRUE;
 		
-		Ar = (float)windowWidth / (float)windowHeight;
+		ar = (float)windowWidth / (float)windowHeight;
 	}
 	
 	// Window resize callback
 	void onWindowResize(int w, int h) {
-		Ar = (float)w / (float)h;
+		ar = (float)w / (float)h;
 	}
 	
 	// Here you load and setup all your Vulkan Models and Texutures.
@@ -286,23 +292,13 @@ protected:
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
 		getSixAxis(deltaT, m, r, fire); 
-	
-		// Parameters for the Camera
-		constexpr float ROT_SPEED = glm::radians(120.0f);
-		constexpr float MOVE_SPEED = 2.0f;
-
-		static float alpha = M_PI;					// yaw
-		static float beta = glm::radians(5.0f);     // pitch
-		static float camDist = 10.0f;				// distance from the target
 
 		//Matrices setup 
-		glm::mat4 pMat = glm::perspective(FOVy, Ar, nearPlane, farPlane);	//Projection Matrix
+		glm::mat4 pMat = glm::perspective(FOVy, ar, nearPlane, farPlane);	//Projection Matrix
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
 
-
 		/************************************* MOTION OF THE CAR *************************************/
-		
 		steeringAng += -m.x * carSteeringSpeed * deltaT;
 		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
 			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
@@ -323,44 +319,42 @@ protected:
 	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
-		/************************************* END MOTION OF THE CAR *************************************/
+		/************************************************************************************************/		
 		
-		
-		
-		//----------------Walk model procedure---------------- (In progress)
+		/************************************* Walk model procedure *************************************/
 		// Walk model procedure
-		glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
-		glm::vec3 uy = glm::vec3(0,1,0);
-		glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
-		alpha -= ROT_SPEED * r.y * deltaT;	 // yaw
+		//glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
+		//glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
+		alpha += ROT_SPEED * r.y * deltaT;	 // yaw, += for mouse movement
 		beta -= ROT_SPEED * r.x * deltaT; // pitch
 		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
+		camDist -= MOVE_SPEED * deltaT * m.y;
 		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
-		camPos -= uy * MOVE_SPEED * m.y * deltaT; // Uncomment to enable vertical movement (can be used for camera distance)
 		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
-
-		//glm::vec3 cameraOffset = glm::vec3(0.0f, 5.0f, -10.0f); // Adjust as needed
-		//camPos = camTarget + cameraOffset;
 		
-		camPos = updatedCarPos + glm::vec3(0.0f, 2.0f, 5.0f);
-		ViewMatrix = glm::lookAt(camPos, updatedCarPos, uy);
-		//ViewMatrix = glm::translate(glm::mat4(1), -camPos);
-		vpMat = pMat * ViewMatrix; 
-		//----------------------------------------------------
+		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	  // -0.3f to avoid camera flip for every camera distance
+		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	      // Camera distance limits
+		
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha, glm::vec3(0, 1, 0)) * 
+										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
+										   glm::vec4(0, -camHeight, camDist, 1));
+		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
+		vpMat = pMat * viewMatrix; 
+		/************************************************************************************************/
 
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 2.0f);
+		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 0.0f);
 		//g_ubo.lightDir = glm::vec3(0.0f, 10.0f, -20.0f);
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		g_ubo.viewerPosition = glm::vec3(glm::inverse(ViewMatrix) * glm::vec4(0, 0, 0, 1));
+		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1));
 		DSGlobal.map(currentImage, &g_ubo, 0);
 		
 		//Object Uniform Buffer creation
 		//SkyBox
 		skyBoxUniformBufferObject sb_ubo{};
-		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(ViewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
+		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(viewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
 		//Car
