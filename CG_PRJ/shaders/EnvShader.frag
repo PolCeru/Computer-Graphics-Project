@@ -14,7 +14,7 @@ layout(location = 2) in vec3 fragNorm;
 
 layout(location = 0) out vec4 fragColor; // Output color
 
-vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
+vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
 	vec3 diffuse, specular; 
 
 	//Lambert
@@ -22,7 +22,7 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPostion) {
 	//diffuse = abs(texColor * dot(normal, lightDir)); 
 	
 	//Blinn
-	vec3 viewerDirection = normalize(viewerPostion - fragPos); 
+	vec3 viewerDirection = normalize(viewerPosition - fragPos); 
 	vec3 halfVector = normalize(lightDir + viewerDirection); 
 	specular = vec3(pow(max(dot(normal, halfVector), 0.0), 40.0)); 
 
