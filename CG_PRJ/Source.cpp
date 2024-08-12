@@ -100,13 +100,13 @@ protected:
 	glm::vec3 updatedCarPos = glm::vec3(0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
-	const float carAcceleration = 2.0f;						// realistically it should depend on the acceleration of the car
-	const float carDecelerationEffect = 10.0f;				// realistically it should depend on the surface attrition 
+	const float carAcceleration = 7.94f;						// [m/s^2]
+	const float carDeceleration = 3.97f; 
+	const float attrition = 0.7f; 
 	const float carSteeringSpeed = glm::radians(60.0f);
 	const float carDampingSpeed = 1.5f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
-	float carDeceleration = 0.0f;						// Not implemented the logic yet, but it should depend on the car brake
 
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -310,7 +310,7 @@ protected:
 	void updateUniformBuffer(uint32_t currentImage) {
 		// Parameters for the SixAxis
 		static glm::vec3 dampedCamPos = camPos;
-		float deltaT;					// Time between frames
+		float deltaT;					// Time between frames [seconds]
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
@@ -322,24 +322,34 @@ protected:
 		glm::mat4 vpMat;													//View Projection Matrix
 
 		/************************************* MOTION OF THE CAR *************************************/
-		steeringAng += -m.x * carSteeringSpeed * deltaT;
-		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
-			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
-		if (m.z != 0.0f) {
-			carVelocity += carAcceleration * deltaT;
+
+		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
+			carVelocity -= carDeceleration * deltaT;
+		}
+
+		if (m.z < 0) { // w pressed
+			carVelocity += carAcceleration * deltaT; 
+			carVelocity = glm::min(carVelocity, 89.0f); 
+		}
+		if (m.z > 0) { // s pressed
+			if (carVelocity <= 0) {
+				carVelocity -= carDeceleration * deltaT; 
+				carVelocity = glm::max(carVelocity, -35.0f);
+			}
 		}
 		else {
-			carVelocity = glm::max(0.0f, carVelocity - (carDecelerationEffect * deltaT));
+			carVelocity -= attrition * 9.81 * deltaT; 
+			carVelocity = glm::max(carVelocity, 0.0f);
 		}
-		if (m.z != 0.0f) {
-			startingCarPos.z += carVelocity * deltaT * m.z * glm::cos(steeringAng);
-			startingCarPos.x += carVelocity * deltaT * m.z * glm::sin(steeringAng);
-		}
-		else {
-			startingCarPos.z += carVelocity * deltaT * glm::cos(steeringAng);
-			startingCarPos.x += carVelocity * deltaT * glm::sin(steeringAng);
-		}
-	
+		
+
+		steeringAng += -glm::radians(m.x * std::atan2(2.6f, std::pow(carVelocity, 2.0f) / carAcceleration));
+			
+		steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
+			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));
+		
+		startingCarPos.z -= carVelocity * deltaT * glm::abs(glm::cos(steeringAng));
+		startingCarPos.x += carVelocity * deltaT * glm::abs(glm::sin(steeringAng));
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
 
@@ -362,10 +372,10 @@ protected:
 		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) *
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
-		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
-						 dampedCamPos * exp(-lambdaCam * deltaT);
+		/*dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
+						 dampedCamPos * exp(-lambdaCam * deltaT);*/
 
-		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
+		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix; 
 		/************************************************************************************************/
 
