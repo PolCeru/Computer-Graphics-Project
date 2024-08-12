@@ -76,12 +76,13 @@ protected:
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
 
-	// Parameters for the Camera
+	/******* CAMERA PARAMETERS *******/
 	float alpha = M_PI;					// yaw
 	float beta = glm::radians(5.0f);    // pitch
 	//static float rho = 0.0f;			// roll
 	float camDist = 7.0f;				// distance from the target
 	float camHeight = 2.0f;				// height from the target
+	const float lambdaCam = 10.0f;      // damping factor for the camera
 
 	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);					//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
@@ -287,6 +288,7 @@ protected:
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
 		// Parameters for the SixAxis
+		static glm::vec3 dampedCamPos = camPos;
 		float deltaT;					// Time between frames
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
@@ -319,6 +321,7 @@ protected:
 	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
+
 		/************************************************************************************************/		
 		
 		/************************************* Walk model procedure *************************************/
@@ -335,10 +338,13 @@ protected:
 		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	  // -0.3f to avoid camera flip for every camera distance
 		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	      // Camera distance limits
 		
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha, glm::vec3(0, 1, 0)) * 
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) * 
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
-		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
+						 dampedCamPos * exp(-lambdaCam * deltaT); 
+
+		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix; 
 		/************************************************************************************************/
 
@@ -374,7 +380,6 @@ protected:
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));;
 		}
 		DSGlobal.map(currentImage, &straight_road_ubo, 1);
-
 	}
 };
 
