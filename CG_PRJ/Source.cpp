@@ -56,18 +56,18 @@ protected:
 	Texture TSkyBox, TStars;
 	DescriptorSet DSSkyBox;
 
-	// Road 
-	DescriptorSetLayout DSLroad; 
+	// Road
+	DescriptorSetLayout DSLroad;
 	VertexDescriptor VDenv; 
-	Pipeline Proad; 
-	Model MstraightRoad; 
-	Model MturnLeft; 
-	Model MturnRight; 
+	Pipeline Proad;
+	Model MstraightRoad;
+	Model MturnLeft;
+	Model MturnRight;
 	DescriptorSet DSstraightRoad;
-	DescriptorSet DSturnLeft; 
-	DescriptorSet DSturnRight; 
+	DescriptorSet DSturnLeft;
+	DescriptorSet DSturnRight;
 
-	// Car 
+	// Car
 	DescriptorSetLayout DSLcar; 
 	VertexDescriptor VDcar; 
 	Pipeline Pcar; 
@@ -83,12 +83,13 @@ protected:
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
 
-	// Parameters for the Camera
+	/******* CAMERA PARAMETERS *******/
 	float alpha = M_PI;					// yaw
 	float beta = glm::radians(5.0f);    // pitch
 	//static float rho = 0.0f;			// roll
 	float camDist = 7.0f;				// distance from the target
 	float camHeight = 2.0f;				// height from the target
+	const float lambdaCam = 10.0f;      // damping factor for the camera
 
 	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);					//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
@@ -130,7 +131,7 @@ protected:
 		//Global
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1}
-			}); 
+			});
 
 		//Skybox
 		DSLSkyBox.init(this, {
@@ -141,7 +142,7 @@ protected:
 
 		//Road
 		DSLroad.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}, 
+				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
 				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1}
 		});
 
@@ -181,7 +182,7 @@ protected:
 		//----------------Pipelines----------------
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
-		Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLroad}); 
+		Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLroad});
 		Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
 
@@ -189,7 +190,7 @@ protected:
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
 		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
 		MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
-		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG); 
+		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
 
 
@@ -217,7 +218,7 @@ protected:
 		//Descriptor Set initialization
 		DSSkyBox.init(this, &DSLSkyBox, {&TSkyBox, &TStars});
 		DSGlobal.init(this, &DSLGlobal, {});
-		DSstraightRoad.init(this, &DSLroad, { &Tenv }); 
+		DSstraightRoad.init(this, &DSLroad, { &Tenv });
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
 		DSturnRight.init(this, &DSLroad, { &Tenv });
 		DScar.init(this, &DSLcar, {&Tenv});  
@@ -239,8 +240,8 @@ protected:
 		//Descriptor Set Cleanup
 		DSGlobal.cleanup();
 		DSSkyBox.cleanup();
-		DSstraightRoad.cleanup(); 
-		DSturnLeft.cleanup(); 
+		DSstraightRoad.cleanup();
+		DSturnLeft.cleanup();
 		DSturnRight.cleanup();
 		DScar.cleanup();
 		
@@ -258,9 +259,9 @@ protected:
 
 		//Models Cleanup
 		MSkyBox.cleanup();
-		MstraightRoad.cleanup(); 
-		MturnLeft.cleanup(); 
-		MturnRight.cleanup(); 
+		MstraightRoad.cleanup();
+		MturnLeft.cleanup();
+		MturnRight.cleanup();
 		Mcar.cleanup(); 
 
 		//Descriptor Set Layouts Cleanup
@@ -271,7 +272,7 @@ protected:
 		
 		//Pipelines destruction
 		PSkyBox.destroy();
-		Proad.destroy(); 
+		Proad.destroy();
 		Pcar.destroy();
 	}
 	
@@ -295,7 +296,7 @@ protected:
 		Proad.bind(commandBuffer);
 
 		MstraightRoad.bind(commandBuffer);
-		DSstraightRoad.bind(commandBuffer, Proad, 1, currentImage); 
+		DSstraightRoad.bind(commandBuffer, Proad, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MstraightRoad.indices.size()), 2 * ROAD_DIM, 0, 0, 0);
 
 		MturnLeft.bind(commandBuffer);
@@ -313,6 +314,7 @@ protected:
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
 		// Parameters for the SixAxis
+		static glm::vec3 dampedCamPos = camPos;
 		float deltaT;					// Time between frames
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
@@ -345,7 +347,8 @@ protected:
 	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
-		/************************************************************************************************/		
+
+		/************************************************************************************************/
 		
 		/************************************* Walk model procedure *************************************/
 		// Walk model procedure
@@ -361,10 +364,13 @@ protected:
 		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	  // -0.3f to avoid camera flip for every camera distance
 		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	      // Camera distance limits
 		
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha, glm::vec3(0, 1, 0)) * 
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) *
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
-		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
+						 dampedCamPos * exp(-lambdaCam * deltaT);
+
+		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix; 
 		/************************************************************************************************/
 
@@ -391,14 +397,14 @@ protected:
 		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
-		int i = 0; 
+		int i = 0;
 
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
 		for (i = 0; i < 2 * ROAD_DIM; i++) {
 
 
-			straight_road_ubo.mMat[i] = glm::mat4(1.0f); 
+			straight_road_ubo.mMat[i] = glm::mat4(1.0f);
 
 			if (i >= ROAD_DIM) {
 				straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(16.0f * ((i - ROAD_DIM)+ 1), 0.0f, -16.0f * ROAD_DIM)) *
@@ -421,8 +427,8 @@ protected:
 		turn_right.mvpMat[0] = vpMat * turn_right.mMat[0];
 		turn_right.nMat[0] = glm::inverse(glm::transpose(turn_right.mMat[0]));;
 		DSturnRight.map(currentImage, &turn_right, 1);
-		
-		i++; 
+
+		i++;
 
 		RoadUniformBufferObject turn_left{};
 		turn_left.mMat[0] = glm::translate(glm::mat4(1.0f), glm::vec3(11.0f, 0.0f, 50.0f)) *
