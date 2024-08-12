@@ -198,15 +198,10 @@ protected:
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
 		Tenv.init(this, "textures/Textures_City.png"); 
 		TStars.init(this, "textures/constellation_figures.png");
-		
-		// Descriptor pool sizes
-		/*DPSZs.uniformBlocksInPool = 7;												//# of uniform buffers  (Global, SkyBox, Road * 3, Car)
-		DPSZs.texturesInPool = 7;													//# of textures (SkyBox, Stars, Environment)
-		DPSZs.setsInPool = 7;  														//# of DS (Global, SkyBox, Road * 3, Car)*/
 
-		DPSZs.uniformBlocksInPool = 100;												//# of uniform buffers  (Global, SkyBox, Road * 3, Car)
-		DPSZs.texturesInPool = 100;													//# of textures (SkyBox, Stars, Environment)
-		DPSZs.setsInPool = 100;  														//# of DS (Global, SkyBox, Road * 3, Car)
+		DPSZs.uniformBlocksInPool = 6;				//# of uniform buffers  (Global, SkyBox, Car, Road * 3)
+		DPSZs.texturesInPool = 6;					//# of textures (SkyBox, Stars, Car, Road * 3)
+		DPSZs.setsInPool = 6;  						//# of DS (Global, SkyBox, Car, Road * 3)
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
