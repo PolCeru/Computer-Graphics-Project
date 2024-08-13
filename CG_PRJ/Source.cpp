@@ -1,6 +1,7 @@
 #include "modules/Starter.hpp"
-#define MAP_SIZE 11
+#define MAP_SIZE 23
 #define DIRECTIONS 4
+#define SCALING_FACTOR 16.0f
 
 //Global
 //Direct Light
@@ -75,9 +76,11 @@ protected:
 	Model MstraightRoad;
 	Model MturnLeft;
 	Model MturnRight;
+	Model Mtile;
 	DescriptorSet DSstraightRoad;
 	DescriptorSet DSturnLeft;
 	DescriptorSet DSturnRight;
+	DescriptorSet DStile;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 
@@ -207,15 +210,16 @@ protected:
 		MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
 		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+		Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
 
 		//----------------Textures----------------
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
 		Tenv.init(this, "textures/Textures_City.png"); 
 		TStars.init(this, "textures/constellation_figures.png");
 
-		DPSZs.uniformBlocksInPool = 6;				//# of uniform buffers  (Global, SkyBox, Car, Road * 3)
-		DPSZs.texturesInPool = 6;					//# of textures (SkyBox, Stars, Car, Road * 3)
-		DPSZs.setsInPool = 6;  						//# of DS (Global, SkyBox, Car, Road * 3)
+		DPSZs.uniformBlocksInPool = 7;				//# of uniform buffers  (Global, SkyBox, Car, Road * 3)
+		DPSZs.texturesInPool = 7;					//# of textures (SkyBox, Stars, Car, Road * 3)
+		DPSZs.setsInPool = 7;  						//# of DS (Global, SkyBox, Car, Road * 3)
 		
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -237,8 +241,8 @@ protected:
 				int type = mapMatrix[i][j][0];
 				std::pair <int, int> index = std::make_pair(i, j);
 
-				float x = 16.0f * (j - MAP_CENTER);
-				float z = 16.0f * (i - MAP_CENTER);
+				float x = SCALING_FACTOR * (j - MAP_CENTER);
+				float z = SCALING_FACTOR * (i - MAP_CENTER);
 
 				mapLoaded[i][j].pos = glm::vec3(x, 0.0f, z);
 				mapLoaded[i][j].type = type;
@@ -290,6 +294,7 @@ protected:
 		DSstraightRoad.init(this, &DSLroad, { &Tenv });
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
 		DSturnRight.init(this, &DSLroad, { &Tenv });
+		DStile.init(this, &DSLroad, { &Tenv });
 		DScar.init(this, &DSLcar, {&Tenv});  
 		
 		//Pipeline Creation
@@ -312,6 +317,7 @@ protected:
 		DSstraightRoad.cleanup();
 		DSturnLeft.cleanup();
 		DSturnRight.cleanup();
+		DStile.cleanup();
 		DScar.cleanup();
 		
 	}
@@ -331,6 +337,7 @@ protected:
 		MstraightRoad.cleanup();
 		MturnLeft.cleanup();
 		MturnRight.cleanup();
+		Mtile.cleanup();
 		Mcar.cleanup(); 
 
 		//Descriptor Set Layouts Cleanup
@@ -377,6 +384,10 @@ protected:
 		DSturnRight.bind(commandBuffer, Proad, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnRight.indices.size()), static_cast<uint32_t>(mapIndexes[RIGHT].size()), 0, 0, 0);
 
+		Mtile.bind(commandBuffer);
+		DStile.bind(commandBuffer, Proad, 1, currentImage);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mtile.indices.size()), static_cast<uint32_t>(mapIndexes[NONE].size()), 0, 0, 0);
+
 	}
 
 	// Here is where you update the uniforms.
@@ -415,12 +426,12 @@ protected:
 		}
 	
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
-		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
+		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
 
-		/************************************************************************************************/
-		
+		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_SIZE ? (- SCALING_FACTOR * MAP_SIZE)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_SIZE ? (SCALING_FACTOR * MAP_SIZE)-0.1f  : updatedCarPos.x)); //boundaries
+		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_SIZE ? (- SCALING_FACTOR * MAP_SIZE)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_SIZE ? (SCALING_FACTOR * MAP_SIZE)-0.1f  : updatedCarPos.z)); //boundaries
+
 		/************************************* Walk model procedure *************************************/
-		// Walk model procedure
 		//glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
 		//glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
 		alpha += ROT_SPEED * r.y * deltaT;	 // yaw, += for mouse movement
@@ -436,6 +447,7 @@ protected:
 		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) *
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
+
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
 						 dampedCamPos * exp(-lambdaCam * deltaT);
 
@@ -447,7 +459,6 @@ protected:
 		//Global
 		GlobalUniformBufferObject g_ubo{};
 		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 0.0f);
-		//g_ubo.lightDir = glm::vec3(0.0f, 10.0f, -20.0f);
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1));
 		DSGlobal.map(currentImage, &g_ubo, 0);
@@ -466,11 +477,9 @@ protected:
 		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
-		int i = 0;
-
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
-		for (i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
+		for (int i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
 			int n = mapIndexes[STRAIGHT][i].first;
 			int m = mapIndexes[STRAIGHT][i].second;
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
@@ -482,7 +491,7 @@ protected:
 
 
 		RoadUniformBufferObject turn_right{};
-		for (i = 0; i < mapIndexes[RIGHT].size(); i++) {
+		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			int n = mapIndexes[RIGHT][i].first;
 			int m = mapIndexes[RIGHT][i].second;
 			turn_right.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
@@ -494,16 +503,26 @@ protected:
 
 
 		RoadUniformBufferObject turn_left{};
-		for (i = 0; i < mapIndexes[LEFT].size(); i++) {
+		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			int n = mapIndexes[LEFT][i].first;
 			int m = mapIndexes[LEFT][i].second;
 			turn_left.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0)) ;
-								//glm::scale(glm::mat4(1.0f), glm::vec3(-1.0f, 1.0f, 1.0f));
+								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			turn_left.mvpMat[i] = vpMat * turn_left.mMat[i];
 			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
 		}
 		DSturnLeft.map(currentImage, &turn_left, 1);
+
+		RoadUniformBufferObject r_tile{};
+		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
+			int n = mapIndexes[NONE][i].first;
+			int m = mapIndexes[NONE][i].second;
+			r_tile.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
+			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
+		}
+		DStile.map(currentImage, &r_tile, 1);
 
 	}
 };
