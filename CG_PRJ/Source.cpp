@@ -121,9 +121,9 @@ protected:
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
 	const float carDeceleration = 4.0f; 
-	const float attrition = 0.7f; 
-	const float carSteeringSpeed = glm::radians(10.0f);
-	const float carDampingSpeed = 1.5f;
+	const float friction = 0.7f; 
+	const float carSteeringSpeed = glm::radians(30.0f);
+	const float carDampingSpeed = 5.0f;
 	const float braking = 6.0f; 
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
@@ -408,7 +408,6 @@ protected:
 		glm::mat4 vpMat;													//View Projection Matrix
 
 		/************************************* MOTION OF THE CAR *************************************/
-
 		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
 			carVelocity -= braking * deltaT;
 		}
@@ -425,14 +424,12 @@ protected:
 			}
 		}
 		else {
-			carVelocity -= attrition * 9.81 * deltaT; 
+			carVelocity -= friction * 9.81 * deltaT; 
 			carVelocity = glm::max(carVelocity, 0.0f);
 		}
 		
-		steeringAng += -m.x * carSteeringSpeed * deltaT;
-
-		std::cout << "COS :" << glm::cos(steeringAng) << std::endl;
-		std::cout << "SIN :" << glm::sin(steeringAng) << std::endl;
+		if (carVelocity != 0.0f)
+			steeringAng += -m.x * carSteeringSpeed * deltaT;
 
 		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
 			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
@@ -462,10 +459,9 @@ protected:
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
 
-		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
-						 dampedCamPos * exp(-lambdaCam * deltaT);
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT);
 
-		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
+		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix; 
 		/************************************************************************************************/
 
