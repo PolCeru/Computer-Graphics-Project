@@ -100,11 +100,12 @@ protected:
 	glm::vec3 updatedCarPos = glm::vec3(0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
-	const float carAcceleration = 7.94f;						// [m/s^2]
-	const float carDeceleration = 3.97f; 
+	const float carAcceleration = 8.0f;						// [m/s^2]
+	const float carDeceleration = 4.0f; 
 	const float attrition = 0.7f; 
-	const float carSteeringSpeed = glm::radians(60.0f);
+	const float carSteeringSpeed = glm::radians(10.0f);
 	const float carDampingSpeed = 1.5f;
+	const float braking = 6.0f; 
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
@@ -324,7 +325,7 @@ protected:
 		/************************************* MOTION OF THE CAR *************************************/
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
-			carVelocity -= carDeceleration * deltaT;
+			carVelocity -= braking * deltaT;
 		}
 
 		if (m.z < 0) { // w pressed
@@ -332,6 +333,7 @@ protected:
 			carVelocity = glm::min(carVelocity, 89.0f); 
 		}
 		if (m.z > 0) { // s pressed
+			m.x *= -1; 
 			if (carVelocity <= 0) {
 				carVelocity -= carDeceleration * deltaT; 
 				carVelocity = glm::max(carVelocity, -35.0f);
@@ -342,8 +344,7 @@ protected:
 			carVelocity = glm::max(carVelocity, 0.0f);
 		}
 		
-
-		steeringAng -= glm::radians(m.x * std::atan2(2.6f, std::pow(carVelocity, 2.0f) / carAcceleration));
+		steeringAng += -m.x * carSteeringSpeed * deltaT;
 
 		std::cout << "COS :" << glm::cos(steeringAng) << std::endl;
 		std::cout << "SIN :" << glm::sin(steeringAng) << std::endl;
@@ -375,8 +376,8 @@ protected:
 		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) *
 										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 										   glm::vec4(0, -camHeight, camDist, 1));
-		/*dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
-						 dampedCamPos * exp(-lambdaCam * deltaT);*/
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) +
+						 dampedCamPos * exp(-lambdaCam * deltaT);
 
 		viewMatrix = glm::lookAt(camPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix; 
