@@ -343,13 +343,16 @@ protected:
 		}
 		
 
-		steeringAng += -glm::radians(m.x * std::atan2(2.6f, std::pow(carVelocity, 2.0f) / carAcceleration));
-			
-		steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
-			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));
-		
-		startingCarPos.z -= carVelocity * deltaT * glm::abs(glm::cos(steeringAng));
-		startingCarPos.x += carVelocity * deltaT * glm::abs(glm::sin(steeringAng));
+		steeringAng -= glm::radians(m.x * std::atan2(2.6f, std::pow(carVelocity, 2.0f) / carAcceleration));
+
+		std::cout << "COS :" << glm::cos(steeringAng) << std::endl;
+		std::cout << "SIN :" << glm::sin(steeringAng) << std::endl;
+
+		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
+			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
+
+		startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
+		startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));	
 
