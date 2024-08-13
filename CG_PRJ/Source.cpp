@@ -1,29 +1,48 @@
 #include "modules/Starter.hpp"
-#define ROAD_DIM 5
+#define MAP_SIZE 11
+#define DIRECTIONS 4
 
 //Global
-// Direct Light
+//Direct Light
 struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 lightDir;
 	alignas(16) glm::vec4 lightColor;
 	alignas(16) glm::vec3 viewerPosition;
 };
 
-
-//Car uniform object
+//Car
 struct UniformBufferObject {
 	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
 	alignas(16) glm::mat4 mMat;   //Model/World Matrix
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
 };
 
-//Floor uniform objects
+//Road
 struct RoadUniformBufferObject {
-	alignas(16) glm::mat4 mvpMat[2 * ROAD_DIM];
-	alignas(16) glm::mat4 mMat[2 * ROAD_DIM];
-	alignas(16) glm::mat4 nMat[2 * ROAD_DIM];
+	alignas(16) glm::mat4 mvpMat[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::mat4 mMat[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::mat4 nMat[MAP_SIZE * MAP_SIZE];
 };
 
+struct RoadPosition {
+	glm::vec3 pos;
+	int type;
+	float rotation;
+};
+
+//Road Types
+enum RoadType {
+    STRAIGHT = 0,
+    LEFT = 1,
+    RIGHT = 2,
+    NONE = 3
+};
+
+struct Vertex {
+	glm::vec3 pos;
+	glm::vec2 uv;
+	glm::vec3 normal;
+};
 
 //Skybox
 struct skyBoxUniformBufferObject {
@@ -33,13 +52,6 @@ struct skyBoxUniformBufferObject {
 struct skyBoxVertex {
 	glm::vec3 pos;
 };
-
-struct Vertex {
-	glm::vec3 pos;
-	glm::vec2 uv;
-	glm::vec3 normal;
-};
-
 
 // MAIN ! 
 class A10 : public BaseProject {
@@ -66,6 +78,8 @@ protected:
 	DescriptorSet DSstraightRoad;
 	DescriptorSet DSturnLeft;
 	DescriptorSet DSturnRight;
+	std::vector<std::vector<RoadPosition>> mapLoaded;
+	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 
 	// Car
 	DescriptorSetLayout DSLcar; 
@@ -77,11 +91,13 @@ protected:
 	// Environment
 	Texture Tenv;
 
-
+	/******* APP PARAMETERS *******/
 	float ar;
 	float FOVy = glm::radians(60.0f);
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
+	const int MAP_CENTER = MAP_SIZE / 2;
+	const float baseObjectRotation = 90.0f;
 
 	/******* CAMERA PARAMETERS *******/
 	float alpha = M_PI;					// yaw
@@ -91,7 +107,7 @@ protected:
 	float camHeight = 2.0f;				// height from the target
 	const float lambdaCam = 10.0f;      // damping factor for the camera
 
-	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);					//Camera Position (-l/+r, -d/+u, b/f)
+	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);				//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
 	glm::vec3 upVector = glm::vec3(0, 1, 0);							//Up Vector
 
@@ -178,7 +194,6 @@ protected:
 				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
 			});
 
-
 		//----------------Pipelines----------------
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
@@ -193,7 +208,6 @@ protected:
 		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
 
-
 		//----------------Textures----------------
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
 		Tenv.init(this, "textures/Textures_City.png"); 
@@ -206,6 +220,66 @@ protected:
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
 		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
+
+		//----------------Map Grid Initialization----------------
+		auto mapMatrix = LoadMapFile();
+
+		// Initialize the mapLoaded and mapIndexes
+		LoadMap(mapMatrix);
+	}
+
+	void LoadMap(nlohmann::json& mapMatrix)
+	{
+		mapIndexes.resize(DIRECTIONS);
+		mapLoaded.resize(MAP_SIZE, std::vector<RoadPosition>(MAP_SIZE));
+		for (int i = 0; i < MAP_SIZE; i++) {
+			for (int j = 0; j < MAP_SIZE; j++) {
+				int type = mapMatrix[i][j][0];
+				std::pair <int, int> index = std::make_pair(i, j);
+
+				float x = 16.0f * (j - MAP_CENTER);
+				float z = 16.0f * (i - MAP_CENTER);
+
+				mapLoaded[i][j].pos = glm::vec3(x, 0.0f, z);
+				mapLoaded[i][j].type = type;
+				mapLoaded[i][j].rotation = mapMatrix[i][j][1];
+
+				switch (type) {
+				case STRAIGHT:
+					mapIndexes[STRAIGHT].push_back(index);
+					break;
+
+				case LEFT:
+					mapIndexes[LEFT].push_back(index);
+					break;
+
+				case RIGHT:
+					mapIndexes[RIGHT].push_back(index);
+					break;
+
+				default:
+					mapIndexes[NONE].push_back(index);
+					break;
+				}
+			}
+		}
+	}
+
+	// Loads the JSON
+	nlohmann::json LoadMapFile(){
+		nlohmann::json json;
+
+		std::ifstream infile("config/map1.json");
+		if (!infile.is_open()) {
+			std::cerr << "Error opening file!" << std::endl;
+			exit(1);
+		}
+
+		// Parse the JSON content
+		infile >> json;
+		infile.close();
+
+		return json["map"];
 	}
 	
 	// Here you create your pipelines and Descriptor Sets!
@@ -288,20 +362,20 @@ protected:
 		DScar.bind(commandBuffer, Pcar, 1, currentImage); 
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
+		//Draw Road pieces
 		Proad.bind(commandBuffer);
 
 		MstraightRoad.bind(commandBuffer);
 		DSstraightRoad.bind(commandBuffer, Proad, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MstraightRoad.indices.size()), 2 * ROAD_DIM, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MstraightRoad.indices.size()), static_cast<uint32_t>(mapIndexes[STRAIGHT].size()), 0, 0, 0);
 
 		MturnLeft.bind(commandBuffer);
 		DSturnLeft.bind(commandBuffer, Proad, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnLeft.indices.size()), 1, 0, 0, 0);
-
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnLeft.indices.size()), static_cast<uint32_t>(mapIndexes[LEFT].size()), 0, 0, 0);
 
 		MturnRight.bind(commandBuffer);
 		DSturnRight.bind(commandBuffer, Proad, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnRight.indices.size()), 1, 0, 0, 0);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnRight.indices.size()), static_cast<uint32_t>(mapIndexes[RIGHT].size()), 0, 0, 0);
 
 	}
 
@@ -396,20 +470,11 @@ protected:
 
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
-		for (i = 0; i < 2 * ROAD_DIM; i++) {
-
-
-			straight_road_ubo.mMat[i] = glm::mat4(1.0f);
-
-			if (i >= ROAD_DIM) {
-				straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(16.0f * ((i - ROAD_DIM)+ 1), 0.0f, -16.0f * ROAD_DIM)) *
-					glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0, 1, 0));
-			}
-			else {
-				straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -16.0f * i)) *
-					glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
-			}
-
+		for (i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
+			int n = mapIndexes[STRAIGHT][i].first;
+			int m = mapIndexes[STRAIGHT][i].second;
+			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+										glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
 		}
@@ -417,19 +482,27 @@ protected:
 
 
 		RoadUniformBufferObject turn_right{};
-		turn_right.mMat[0] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -16.0f * ROAD_DIM)) *
-				glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
-		turn_right.mvpMat[0] = vpMat * turn_right.mMat[0];
-		turn_right.nMat[0] = glm::inverse(glm::transpose(turn_right.mMat[0]));;
+		for (i = 0; i < mapIndexes[RIGHT].size(); i++) {
+			int n = mapIndexes[RIGHT][i].first;
+			int m = mapIndexes[RIGHT][i].second;
+			turn_right.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+								 glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+			turn_right.mvpMat[i] = vpMat * turn_right.mMat[i];
+			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));
+		}
 		DSturnRight.map(currentImage, &turn_right, 1);
 
-		i++;
 
 		RoadUniformBufferObject turn_left{};
-		turn_left.mMat[0] = glm::translate(glm::mat4(1.0f), glm::vec3(11.0f, 0.0f, 50.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0, 1, 0));
-		turn_left.mvpMat[0] = vpMat * turn_left.mMat[0];
-		turn_left.nMat[0] = glm::inverse(glm::transpose(turn_left.mMat[0]));;
+		for (i = 0; i < mapIndexes[LEFT].size(); i++) {
+			int n = mapIndexes[LEFT][i].first;
+			int m = mapIndexes[LEFT][i].second;
+			turn_left.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0)) ;
+								//glm::scale(glm::mat4(1.0f), glm::vec3(-1.0f, 1.0f, 1.0f));
+			turn_left.mvpMat[i] = vpMat * turn_left.mMat[i];
+			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
+		}
 		DSturnLeft.map(currentImage, &turn_left, 1);
 
 	}

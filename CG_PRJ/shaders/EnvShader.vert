@@ -1,13 +1,12 @@
 #version 450
 
+const int MAP_SIZE = 11;
 
 layout(set = 1, binding = 1) uniform RoadUniformBufferObject {
-	mat4 mvpMat[5];
-	mat4 mMat[5];
-	mat4 nMat[5];
-} srubo;
-
-
+	mat4 mvpMat[MAP_SIZE * MAP_SIZE];
+	mat4 mMat[MAP_SIZE * MAP_SIZE];
+	mat4 nMat[MAP_SIZE * MAP_SIZE];
+} rubo;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec2 inUV;
@@ -19,8 +18,8 @@ layout(location = 2) out vec3 fragNorm;
 
 void main() {
 	int i = gl_InstanceIndex ;
-	gl_Position = srubo.mvpMat[i] * vec4(inPosition, 1.0);
-	fragPos = (srubo.mMat[i] * vec4(inPosition, 1.0)).xyz;
+	gl_Position = rubo.mvpMat[i] * vec4(inPosition, 1.0);
+	fragPos = (rubo.mMat[i] * vec4(inPosition, 1.0)).xyz;
 	fragTexCoord = inUV;
-	fragNorm = mat3(srubo.nMat[i]) * inNormal;
+	fragNorm = mat3(rubo.nMat[i]) * inNormal;
 }
