@@ -439,8 +439,8 @@ protected:
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
 		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
 
-		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_SIZE ? (- SCALING_FACTOR * MAP_SIZE)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_SIZE ? (SCALING_FACTOR * MAP_SIZE)-0.1f  : updatedCarPos.x)); //boundaries
-		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_SIZE ? (- SCALING_FACTOR * MAP_SIZE)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_SIZE ? (SCALING_FACTOR * MAP_SIZE)-0.1f  : updatedCarPos.z)); //boundaries
+		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.x)); //boundaries
+		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.z)); //boundaries
 
 		/************************************* Walk model procedure *************************************/
 		//glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
