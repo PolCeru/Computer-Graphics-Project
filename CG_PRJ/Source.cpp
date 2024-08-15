@@ -25,6 +25,20 @@ struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 nMat[MAP_SIZE * MAP_SIZE];
 };
 
+struct PosDirRoadLightsUniformBufferObject {
+	alignas(16) glm::vec3 lightPos[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::vec3 spotDir[MAP_SIZE * MAP_SIZE]; 
+	alignas(16) glm::vec3 spotPos[MAP_SIZE * MAP_SIZE];
+};
+
+struct RoadLightsUniformBufferObject {
+	alignas(16) glm::vec4 lightColor; 
+	alignas(4) float g; 
+	alignas(4) float decayFactor; 
+	alignas(4) float cosIn; 
+	alignas(4) float cosOut; 
+};
+
 struct RoadPosition {
 	glm::vec3 pos;
 	int type;
@@ -151,19 +165,21 @@ protected:
 		//Global
 		DSLGlobal.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1}
-			});
+		});
 
 		//Skybox
 		DSLSkyBox.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(skyBoxUniformBufferObject), 1},
 					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
 					{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1}
-			});
+		});
 
 		//Road
 		DSLroad.init(this, {
 				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
-				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1}
+				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1},
+				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PosDirRoadLightsUniformBufferObject), 1},
+				{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1}
 		});
 
 		//Car
@@ -394,6 +410,13 @@ protected:
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
+
+		static float cTime = 0.0;
+		const float turnTime = 72.0f;
+		const float angTurnTimeFact = 2.0f * M_PI / turnTime;
+
+		
+
 		// Parameters for the SixAxis
 		static glm::vec3 dampedCamPos = camPos;
 		float deltaT;					// Time between frames [seconds]
@@ -401,6 +424,9 @@ protected:
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
 		getSixAxis(deltaT, m, r, fire); 
+
+		cTime = cTime + deltaT;
+		cTime = (cTime > turnTime) ? (cTime - turnTime) : cTime;
 
 		//Matrices setup 
 		glm::mat4 pMat = glm::perspective(FOVy, ar, nearPlane, farPlane);	//Projection Matrix
@@ -468,11 +494,11 @@ protected:
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 0.0f);
+		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(cTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(cTime * angTurnTimeFact));
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1));
 		DSGlobal.map(currentImage, &g_ubo, 0);
-		
+
 		//Object Uniform Buffer creation
 		//SkyBox
 		skyBoxUniformBufferObject sb_ubo{};
@@ -487,7 +513,17 @@ protected:
 		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
+		RoadLightsUniformBufferObject road_lights_ubo{}; 
+		road_lights_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		road_lights_ubo.g = 2.0f; 
+		road_lights_ubo.decayFactor = 1.0f; 
+		road_lights_ubo.cosIn = 0.9659;
+		road_lights_ubo.cosOut = 0.71; 
+
+
+
 		//Road
+		PosDirRoadLightsUniformBufferObject pos_dir_straight_lights{};
 		RoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
 			int n = mapIndexes[STRAIGHT][i].first;
@@ -496,10 +532,19 @@ protected:
 										glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
+
+			glm::vec4 transformedLightPos = straight_road_ubo.mMat[i] * glm::vec4(-1.0f, 2.0f, -1.0f, 1.0f);
+			pos_dir_straight_lights.lightPos[i] = glm::vec3(transformedLightPos);
+
+			pos_dir_straight_lights.spotDir[i] = glm::vec3(0.3f, - 2.0f, 0.0f);
+			pos_dir_straight_lights.spotPos[i] = glm::vec3(pos_dir_straight_lights.lightPos[i].x + 0.3f, pos_dir_straight_lights.lightPos[i].y - 2.0f, pos_dir_straight_lights.lightPos[i].z);
 		}
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
+		DSstraightRoad.map(currentImage, &pos_dir_straight_lights, 2); 
+		DSstraightRoad.map(currentImage, &road_lights_ubo, 3);
 
 
+		PosDirRoadLightsUniformBufferObject pos_dir_turn_right_lights{};
 		RoadUniformBufferObject turn_right{};
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			int n = mapIndexes[RIGHT][i].first;
@@ -510,8 +555,10 @@ protected:
 			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));
 		}
 		DSturnRight.map(currentImage, &turn_right, 1);
+		DSturnRight.map(currentImage, &pos_dir_straight_lights, 2);
+		DSturnRight.map(currentImage, &road_lights_ubo, 3);
 
-
+		PosDirRoadLightsUniformBufferObject pos_dir_turn_left_lights;
 		RoadUniformBufferObject turn_left{};
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			int n = mapIndexes[LEFT][i].first;
@@ -522,6 +569,8 @@ protected:
 			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
 		}
 		DSturnLeft.map(currentImage, &turn_left, 1);
+		DSturnLeft.map(currentImage, &pos_dir_straight_lights, 2);
+		DSturnLeft.map(currentImage, &road_lights_ubo, 3);
 
 		RoadUniformBufferObject r_tile{};
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
