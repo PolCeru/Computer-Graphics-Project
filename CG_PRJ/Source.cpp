@@ -7,8 +7,11 @@
 //Direct Light
 struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 lightDir;
-	alignas(16) glm::vec4 lightColor;
+	alignas(16) glm::vec4 lightColorDirect;
 	alignas(16) glm::vec3 viewerPosition;
+	alignas(16) glm::vec3 spotLight_lightPosition; 
+	alignas(16) glm::vec3 spotLight_spotDirection;
+	alignas(16) glm::vec3 lightColorSpot; 
 };
 
 //Car
@@ -24,6 +27,7 @@ struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 mMat[MAP_SIZE * MAP_SIZE];
 	alignas(16) glm::mat4 nMat[MAP_SIZE * MAP_SIZE];
 };
+
 
 struct RoadPosition {
 	glm::vec3 pos;
@@ -163,7 +167,7 @@ protected:
 		//Road
 		DSLroad.init(this, {
 				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
-				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1}
+				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1} 
 			});
 
 		//Car
@@ -198,39 +202,39 @@ protected:
 						{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
 					});
 
-					//----------------Pipelines----------------
-					PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
-					PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
-					Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLroad });
-					Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
-					Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
+				//----------------Pipelines----------------
+				PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
+				PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
+				Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLroad });
+				Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+				Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
 
-					//----------------Models----------------
-					MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-					Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-					MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
-					MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-					MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-					Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
+				//----------------Models----------------
+				MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
+				Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
+				MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+				MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+				MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+				Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
 
-					//----------------Textures----------------
-					TSkyBox.init(this, "textures/starmap_g4k.jpg");
-					Tenv.init(this, "textures/Textures_City.png");
-					TStars.init(this, "textures/constellation_figures.png");
+				//----------------Textures----------------
+				TSkyBox.init(this, "textures/starmap_g4k.jpg");
+				Tenv.init(this, "textures/Textures_City.png");
+				TStars.init(this, "textures/constellation_figures.png");
 
-					DPSZs.uniformBlocksInPool = 7;				//# of uniform buffers  (Global, SkyBox, Car, Road * 3)
-					DPSZs.texturesInPool = 7;					//# of textures (SkyBox, Stars, Car, Road * 3)
-					DPSZs.setsInPool = 7;  						//# of DS (Global, SkyBox, Car, Road * 3)
+				DPSZs.uniformBlocksInPool = 7;				//# of uniform buffers  (Global, SkyBox, Car, Road * 3)
+				DPSZs.texturesInPool = 7;					//# of textures (SkyBox, Stars, Car, Road * 3)
+				DPSZs.setsInPool = 7;  						//# of DS (Global, SkyBox, Car, Road * 3)
 
-					std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
-					std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
-					std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
+				std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
+				std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
+				std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
 
-					//----------------Map Grid Initialization----------------
-					auto mapMatrix = LoadMapFile();
+				//----------------Map Grid Initialization----------------
+				auto mapMatrix = LoadMapFile();
 
-					// Initialize the mapLoaded and mapIndexes
-					LoadMap(mapMatrix);
+				// Initialize the mapLoaded and mapIndexes
+				LoadMap(mapMatrix);
 	}
 
 	void LoadMap(nlohmann::json& mapMatrix)
@@ -469,8 +473,11 @@ protected:
 		//Global
 		GlobalUniformBufferObject g_ubo{};
 		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 0.0f);
-		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		g_ubo.lightColorDirect = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1));
+		g_ubo.spotLight_spotDirection = glm::vec3(0.75f, -1.0f, 0.0f);
+		g_ubo.spotLight_lightPosition = glm::vec3(-5.0f, 5.0f, 0.0f);
+		g_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f); 
 		DSGlobal.map(currentImage, &g_ubo, 0);
 
 		//Object Uniform Buffer creation
@@ -487,6 +494,7 @@ protected:
 		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);
 
+
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
 		for (int i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
@@ -496,6 +504,10 @@ protected:
 				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
+
+			
+			
+
 		}
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 
@@ -523,6 +535,7 @@ protected:
 		}
 		DSturnLeft.map(currentImage, &turn_left, 1);
 
+
 		RoadUniformBufferObject r_tile{};
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
 			int n = mapIndexes[NONE][i].first;
@@ -531,6 +544,7 @@ protected:
 				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
 			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
+
 		}
 		DStile.map(currentImage, &r_tile, 1);
 

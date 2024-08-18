@@ -2,15 +2,20 @@
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 
-	vec4 lightColor; 
+	vec4 lightColorDirect; 
 	vec3 viewerPosition; 
+	vec3 spotLight_lightPosition; 
+	vec3 spotLight_spotDirection;
+	vec4 lightColorSpot; 
 } gubo; 
 
 layout(set = 1, binding = 0) uniform sampler2D floorTexture;
 
+
 layout(location = 0) in vec3 fragPos; 
 layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 fragNorm;  
+layout(location = 2) in vec3 fragNorm; 
+
 
 layout(location = 0) out vec4 fragColor; // Output color
 
@@ -30,7 +35,13 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
 
 
 void main() {
+
     vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNorm);
-	fragColor = vec4(gubo.lightColor.rgb * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition), 1.0f);
+	
+	vec3 spotLight_lightDirection = normalize(fragPos - gubo.spotLight_lightPosition); 
+	
+	fragColor = vec4(gubo.lightColorSpot.rgb * pow(1.0 / length(fragPos - gubo.spotLight_lightPosition), 1.0) * clamp((dot(spotLight_lightDirection, gubo.spotLight_spotDirection) - 0.5) / 0.3, 0.0, 1.0), 1.0);
+	
+	fragColor += vec4(gubo.lightColorDirect.rgb * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition), 1.0f);
 }
