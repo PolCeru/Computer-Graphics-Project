@@ -1,7 +1,7 @@
 #version 450
 
-const float HEADLIGHT_INNER_CUTOFF = 0.9;
-const float HEADLIGHT_OUTER_CUTOFF = 0.8;
+const float HEADLIGHT_INNER_CUTOFF = 1.0;
+const float HEADLIGHT_OUTER_CUTOFF = 0.5;
 const float SHININESS = 10.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.1;
@@ -63,11 +63,11 @@ void main() {
 	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
     for (int i = 0; i < 2; i++) {
-        finalColor += CalculateSpotlight(headlightPosition[i], headlightDirection[i], headlightColor[i], abs(normal), 1.0, 0.5);
+        finalColor += CalculateSpotlight(headlightPosition[i], headlightDirection[i], headlightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
     }
 
 	 for (int i = 0; i < 2; i++) {
-       finalColor += CalculateSpotlight(rearLightPosition[i], rearLightDirection[i], rearLightColor[i], abs(normal), 1.0, 0.5);
+       finalColor += CalculateSpotlight(rearLightPosition[i], rearLightDirection[i], rearLightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
     }
 
 	fragColor = vec4(finalColor, 1.0f);

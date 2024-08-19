@@ -503,15 +503,14 @@ protected:
 		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
 		CarLightsUniformBufferObject carLights_ubo{};
 		for(int i = 0; i < 2; i++){
-			glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.65f : 0.55f, 0.8f, -1.7f);
+			glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
 			carLights_ubo.headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
 			carLights_ubo.headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
 			carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
 
-
-			lightsOffset = glm::vec3((i == 0) ? -0.65f : 0.55f, 0.6f, 1.8f);
+			lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
 			carLights_ubo.rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing forward
+			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
 			carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
 		}
 		DScar.map(currentImage, &carLights_ubo, 2);
