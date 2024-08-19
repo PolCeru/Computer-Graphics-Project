@@ -9,10 +9,10 @@ struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 lightDir;
 	alignas(16) glm::vec4 lightColorDirect;
 	alignas(16) glm::vec3 viewerPosition;
-	alignas(16) glm::vec3 spotLight_lightPosition; 
+	alignas(16) glm::vec3 spotLight_lightPosition;
 	alignas(16) glm::vec3 spotLight_spotDirection;
-	alignas(16) glm::vec3 lightColorSpot; 
-};
+	alignas(16) glm::vec3 lightColorSpot;
+ };
 
 //Car
 struct UniformBufferObject {
@@ -21,6 +21,7 @@ struct UniformBufferObject {
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
 };
 
+
 //Road
 struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat[MAP_SIZE * MAP_SIZE];
@@ -28,6 +29,12 @@ struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 nMat[MAP_SIZE * MAP_SIZE];
 };
 
+/*
+struct RoadLightsUniformBufferObject {
+	alignas(16) glm::vec3 spotLight_lightPosition[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::vec3 spotLight_spotDirection[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::vec3 lightColorSpot[MAP_SIZE * MAP_SIZE];
+};*/
 
 struct RoadPosition {
 	glm::vec3 pos;
@@ -476,7 +483,7 @@ protected:
 		g_ubo.lightColorDirect = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1));
 		g_ubo.spotLight_spotDirection = glm::vec3(0.75f, -1.0f, 0.0f);
-		g_ubo.spotLight_lightPosition = glm::vec3(-5.0f, 5.0f, 0.0f);
+		g_ubo.spotLight_lightPosition = glm::vec3(-5.0f, 4.85f, 0.0f);
 		g_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f); 
 		DSGlobal.map(currentImage, &g_ubo, 0);
 
