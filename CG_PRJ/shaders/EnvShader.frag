@@ -1,5 +1,8 @@
 #version 450
 
+const int MAP_SIZE = 23;
+
+
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 
 	vec4 lightColorDirect; 
@@ -9,13 +12,16 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 
 layout(set = 1, binding = 0) uniform sampler2D floorTexture;
 
+layout(set = 1, binding = 2) uniform RoadLightsUniformBufferObject{
+	vec4 spotLight_lightPosition[MAP_SIZE * MAP_SIZE];
+	vec4 spotLight_spotDirection[MAP_SIZE * MAP_SIZE];
+	vec4 lightColorSpot;
+} rlubo; 
 
 layout(location = 0) in vec3 fragPos; 
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 fragNorm; 
-layout(location = 3) in vec4 i_sl_lightPos; 
-layout(location = 4) in vec4 i_sl_spotDir; 
-layout(location = 5) in vec4 i_sl_lightColor; 
+layout(location = 3) in flat int current; 
 
 
 layout(location = 0) out vec4 fragColor; // Output color
@@ -36,6 +42,10 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
 
 
 void main() {
+
+	vec4 i_sl_lightPos = rlubo.spotLight_lightPosition[current]; 
+	vec4 i_sl_spotDir = rlubo.spotLight_spotDirection[current]; 
+	vec4 i_sl_lightColor = rlubo.lightColorSpot; 
 	
 	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNorm);

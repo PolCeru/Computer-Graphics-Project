@@ -172,7 +172,7 @@ protected:
 		DSLroad.init(this, {
 				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
 				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1},
-				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadLightsUniformBufferObject), 1}
+				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1}
 			});
 
 		//Car
@@ -525,26 +525,20 @@ protected:
 					glm::vec4(0.75f, -1.0f, 0.0f, 1.0f)
 				);
 
+			/*lights_straight_road_ubo.spotLight_lightPosition[i][1] =
+				glm::vec4(
+					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos + glm::vec3(0.0f, 0.0f, 0.0f)) *
+						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
+					glm::vec4(5.0f, 4.85f, 8.0f, 1.0f)
+				);
 
-			/*if (i == 6) {
-				g_ubo.spotLight_lightPosition = 
-					glm::vec3(
-						(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos + glm::vec3(0.0f, 0.0f, 0.0f)) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) * 
-						glm::vec4(5.0f, 4.85f, 8.0f, 1.0f)
-					);
-				g_ubo.spotLight_spotDirection = 
-					glm::vec3(
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) * 
-						glm::vec4(-0.75f, -1.0f, 0.0f, 1.0f)
-					);
-			}*/
-
-
-
+			lights_straight_road_ubo.spotLight_spotDirection[i][1] =
+				glm::vec4(
+					glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
+					glm::vec4(-0.75f, -1.0f, 0.0f, 1.0f)
+				);*/
 		}
 		lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
-
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 2);
 
@@ -560,8 +554,8 @@ protected:
 			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));
 			lights_turn_right_road_ubo.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
 			lights_turn_right_road_ubo.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f); 
-			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		}
+		lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DSturnRight.map(currentImage, &turn_right, 1);
 		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 2);
 
@@ -577,8 +571,8 @@ protected:
 			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
 			lights_turn_left_road_ubo.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
 			lights_turn_left_road_ubo.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		}
+		lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DSturnLeft.map(currentImage, &turn_left, 1);
 		DSturnLeft.map(currentImage, &lights_turn_left_road_ubo, 2);
 
@@ -594,9 +588,8 @@ protected:
 			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
 			tile_lights.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
 			tile_lights.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
-			tile_lights.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
-
 		}
+		tile_lights.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DStile.map(currentImage, &r_tile, 1);
 		DStile.map(currentImage, &tile_lights, 2);
 
