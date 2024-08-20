@@ -37,6 +37,13 @@ struct RoadUniformBufferObject {
 	alignas(16) glm::mat4 nMat[MAP_SIZE * MAP_SIZE];
 };
 
+
+struct RoadLightsUniformBufferObject {
+	alignas(16) glm::vec4 spotLight_lightPosition[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::vec4 spotLight_spotDirection[MAP_SIZE * MAP_SIZE];
+	alignas(16) glm::vec4 lightColorSpot;
+};
+
 struct RoadPosition {
 	glm::vec3 pos;
 	int type;
@@ -45,10 +52,10 @@ struct RoadPosition {
 
 //Road Types
 enum RoadType {
-    STRAIGHT = 0,
-    LEFT = 1,
-    RIGHT = 2,
-    NONE = 3
+	STRAIGHT = 0,
+	LEFT = 1,
+	RIGHT = 2,
+	NONE = 3
 };
 
 struct Vertex {
@@ -66,7 +73,7 @@ struct skyBoxVertex {
 	glm::vec3 pos;
 };
 
-// MAIN ! 
+// MAIN
 class A10 : public BaseProject {
 protected:
 	//Global
@@ -83,7 +90,7 @@ protected:
 
 	// Road
 	DescriptorSetLayout DSLroad;
-	VertexDescriptor VDenv; 
+	VertexDescriptor VDenv;
 	Pipeline Proad;
 	Model MstraightRoad;
 	Model MturnLeft;
@@ -97,11 +104,11 @@ protected:
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 
 	// Car
-	DescriptorSetLayout DSLcar; 
-	VertexDescriptor VDcar; 
-	Pipeline Pcar; 
+	DescriptorSetLayout DSLcar;
+	VertexDescriptor VDcar;
+	Pipeline Pcar;
 	Model Mcar;
-	DescriptorSet DScar; 
+	DescriptorSet DScar;
 
 	// Environment
 	Texture Tenv;
@@ -132,11 +139,11 @@ protected:
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
-	const float carDeceleration = 4.0f; 
-	const float friction = 0.7f; 
+	const float carDeceleration = 4.0f;
+	const float friction = 0.7f;
 	const float carSteeringSpeed = glm::radians(30.0f);
 	const float carDampingSpeed = 5.0f;
-	const float braking = 6.0f; 
+	const float braking = 6.0f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
@@ -146,16 +153,16 @@ protected:
 		windowWidth = 800;
 		windowHeight = 600;
 		windowTitle = "CG_PRJ";
-    	windowResizable = GLFW_TRUE;
-		
+		windowResizable = GLFW_TRUE;
+
 		ar = (float)windowWidth / (float)windowHeight;
 	}
-	
+
 	// Window resize callback
 	void onWindowResize(int w, int h) {
 		ar = (float)w / (float)h;
 	}
-	
+
 	// Here you load and setup all your Vulkan Models and Texutures.
 	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
 	void localInit() {
@@ -176,7 +183,8 @@ protected:
 		DSLroad.init(this, {
 				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
 				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1},
-				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1}
+				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1},
+				{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1}
 			});
 
 		//Car
@@ -194,45 +202,45 @@ protected:
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION}
 			});
 
-		//Environment
-		VDenv.init(this, {
-				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
-			});
+			//Environment
+			VDenv.init(this, {
+					{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+				}, {
+					{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+					{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+					{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+				});
 
-		//Car
-		VDcar.init(this, {
-				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
-			});
+				//Car
+				VDcar.init(this, {
+						{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+					}, {
+						{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+						{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+						{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+					});
 
-		//----------------Pipelines----------------
-		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", {&DSLSkyBox});
-		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false); 
-		Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLroad});
-		Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
-		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", {&DSLGlobal, &DSLcar}); 
+					//----------------Pipelines----------------
+					PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
+					PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
+					Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLroad });
+					Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+					Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
 
-		//----------------Models----------------
-		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-		MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
-		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-		MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-		Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
+					//----------------Models----------------
+					MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
+					Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
+					MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+					MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+					MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+					Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
 
-		//----------------Textures----------------
-		TSkyBox.init(this, "textures/starmap_g4k.jpg");
-		Tenv.init(this, "textures/Textures_City.png"); 
-		TStars.init(this, "textures/constellation_figures.png");
+					//----------------Textures----------------
+					TSkyBox.init(this, "textures/starmap_g4k.jpg");
+					Tenv.init(this, "textures/Textures_City.png");
+					TStars.init(this, "textures/constellation_figures.png");
 
-		DPSZs.uniformBlocksInPool = 12;				//# of uniform buffers (Global, SkyBox, Car, CarLights * 5, Road * 4)
+		DPSZs.uniformBlocksInPool = 16;				//# of uniform buffers (Global, SkyBox, Car, Road * 4, lights * (1 + 4 + 4))
 		DPSZs.texturesInPool = 7;					//# of textures (SkyBox, Stars, Car, Road * 3)
 		DPSZs.setsInPool = 7;  						//# of DS (Global, SkyBox, Car, Road * 4)
 		
@@ -299,7 +307,7 @@ protected:
 			}
 		}
 	}
-	
+
 	// Here you create your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsInit() {
 		//Descriptor Set initialization
@@ -333,18 +341,18 @@ protected:
 		DSturnRight.cleanup();
 		DStile.cleanup();
 		DScar.cleanup();
-		
+
 	}
 
 	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
 	// All the object classes defined in Starter.hpp have a method .cleanup() for this purpose
 	// You also have to destroy the pipelines: since they need to be rebuilt, they have two different
 	// methods: .cleanup() recreates them, while .destroy() delete them completely
-	void localCleanup() {	
+	void localCleanup() {
 		//Textures Cleanup
 		TSkyBox.cleanup();
 		TStars.cleanup();
-		Tenv.cleanup(); 
+		Tenv.cleanup();
 
 		//Models Cleanup
 		MSkyBox.cleanup();
@@ -352,20 +360,20 @@ protected:
 		MturnLeft.cleanup();
 		MturnRight.cleanup();
 		Mtile.cleanup();
-		Mcar.cleanup(); 
+		Mcar.cleanup();
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
 		DSLSkyBox.cleanup();
 		DSLroad.cleanup();
 		DSLcar.cleanup();
-		
+
 		//Pipelines destruction
 		PSkyBox.destroy();
 		Proad.destroy();
 		Pcar.destroy();
 	}
-	
+
 	// Here it is the creation of the command buffer:
 	// You send to the GPU all the objects you want to draw,
 	// with their buffers and textures
@@ -377,10 +385,10 @@ protected:
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MSkyBox.indices.size()), 1, 0, 0, 0);
 
 		//Draw Car
-		Pcar.bind(commandBuffer); 
-		Mcar.bind(commandBuffer); 
-		DSGlobal.bind(commandBuffer, Pcar, 0, currentImage); 
-		DScar.bind(commandBuffer, Pcar, 1, currentImage); 
+		Pcar.bind(commandBuffer);
+		Mcar.bind(commandBuffer);
+		DSGlobal.bind(commandBuffer, Pcar, 0, currentImage);
+		DScar.bind(commandBuffer, Pcar, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
 
 		//Draw Road pieces
@@ -413,7 +421,7 @@ protected:
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
-		getSixAxis(deltaT, m, r, fire); 
+		getSixAxis(deltaT, m, r, fire);
 
 		//Matrices setup 
 		glm::mat4 pMat = glm::perspective(FOVy, ar, nearPlane, farPlane);	//Projection Matrix
@@ -426,21 +434,21 @@ protected:
 		}
 
 		if (m.z < 0) { // w pressed
-			carVelocity += carAcceleration * deltaT; 
-			carVelocity = glm::min(carVelocity, 89.0f); 
+			carVelocity += carAcceleration * deltaT;
+			carVelocity = glm::min(carVelocity, 89.0f);
 		}
 		if (m.z > 0) { // s pressed
-			m.x *= -1; 
+			m.x *= -1;
 			if (carVelocity <= 0) {
-				carVelocity -= carDeceleration * deltaT; 
+				carVelocity -= carDeceleration * deltaT;
 				carVelocity = glm::max(carVelocity, -35.0f);
 			}
 		}
 		else {
-			carVelocity -= friction * 9.81 * deltaT; 
+			carVelocity -= friction * 9.81 * deltaT;
 			carVelocity = glm::max(carVelocity, 0.0f);
 		}
-		
+
 		if (carVelocity != 0.0f)
 			steeringAng += -m.x * carSteeringSpeed * deltaT;
 
@@ -450,7 +458,7 @@ protected:
 		startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
 		startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
 		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
-		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed* deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
+		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed * deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
 
 		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.x)); //boundaries
 		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.z)); //boundaries
@@ -464,18 +472,18 @@ protected:
 		camDist -= MOVE_SPEED * deltaT * m.y;
 		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
 		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
-		
+
 		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	  // -0.3f to avoid camera flip for every camera distance
 		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	      // Camera distance limits
-		
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha+steeringAng, glm::vec3(0, 1, 0)) *
-										   glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
-										   glm::vec4(0, -camHeight, camDist, 1));
+
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng, glm::vec3(0, 1, 0)) *
+			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
+			glm::vec4(0, -camHeight, camDist, 1));
 
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT);
 
 		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
-		vpMat = pMat * viewMatrix; 
+		vpMat = pMat * viewMatrix;
 		/************************************************************************************************/
 
 		//Update global uniforms				
@@ -485,7 +493,8 @@ protected:
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
-		
+
+
 		//Object Uniform Buffer creation
 		//SkyBox
 		skyBoxUniformBufferObject sb_ubo{};
@@ -493,7 +502,7 @@ protected:
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
 		//Car
-		UniformBufferObject car_ubo{}; 
+		UniformBufferObject car_ubo{};
 		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
@@ -517,68 +526,113 @@ protected:
 
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
+		RoadLightsUniformBufferObject lights_straight_road_ubo{}; 
 		for (int i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
+			
 			int n = mapIndexes[STRAIGHT][i].first;
 			int m = mapIndexes[STRAIGHT][i].second;
 			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-										glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
+
+			lights_straight_road_ubo.spotLight_lightPosition[i] =
+				glm::vec4(
+					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos + glm::vec3(0.0f, 0.0f, 0.0f)) *
+						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
+					glm::vec4(-5.0f, 4.85f, 0.0f, 1.0f)
+				);
+
+			lights_straight_road_ubo.spotLight_spotDirection[i] =
+				glm::vec4(
+					glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
+					glm::vec4(0.75f, -1.0f, 0.0f, 1.0f)
+				);
+
+			/*lights_straight_road_ubo.spotLight_lightPosition[i][1] =
+				glm::vec4(
+					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos + glm::vec3(0.0f, 0.0f, 0.0f)) *
+						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
+					glm::vec4(5.0f, 4.85f, 8.0f, 1.0f)
+				);
+
+			lights_straight_road_ubo.spotLight_spotDirection[i][1] =
+				glm::vec4(
+					glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
+					glm::vec4(-0.75f, -1.0f, 0.0f, 1.0f)
+				);*/
 		}
+		lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
-
+		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
 
 		RoadUniformBufferObject turn_right{};
+		RoadLightsUniformBufferObject lights_turn_right_road_ubo{};
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			int n = mapIndexes[RIGHT][i].first;
 			int m = mapIndexes[RIGHT][i].second;
 			turn_right.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-								 glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			turn_right.mvpMat[i] = vpMat * turn_right.mMat[i];
 			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));
+			lights_turn_right_road_ubo.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
+			lights_turn_right_road_ubo.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f); 
 		}
+		lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DSturnRight.map(currentImage, &turn_right, 1);
 		DSturnRight.map(currentImage, &carLights_ubo, 2);
+		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
 
 
 		RoadUniformBufferObject turn_left{};
+		RoadLightsUniformBufferObject lights_turn_left_road_ubo{}; 
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			int n = mapIndexes[LEFT][i].first;
 			int m = mapIndexes[LEFT][i].second;
 			turn_left.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			turn_left.mvpMat[i] = vpMat * turn_left.mMat[i];
 			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
+			lights_turn_left_road_ubo.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
+			lights_turn_left_road_ubo.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
 		}
+		lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DSturnLeft.map(currentImage, &turn_left, 1);
 		DSturnLeft.map(currentImage, &carLights_ubo, 2);
+		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
 
 		RoadUniformBufferObject r_tile{};
+		RoadLightsUniformBufferObject tile_lights{};
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
 			int n = mapIndexes[NONE][i].first;
 			int m = mapIndexes[NONE][i].second;
 			r_tile.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
+				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
 			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
+			tile_lights.spotLight_lightPosition[i] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
+			tile_lights.spotLight_spotDirection[i] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
 		}
+		tile_lights.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
 		DStile.map(currentImage, &r_tile, 1);
 		DStile.map(currentImage, &carLights_ubo, 2);
+		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
 
 	}
 };
 
 // This is the main: probably you do not need to touch this!
 int main() {
-    A10 app;
+	A10 app;
 
-    try {
-        app.run();
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        return EXIT_FAILURE;
-    }
+	try {
+		app.run();
+	}
+	catch (const std::exception& e) {
+		std::cerr << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
