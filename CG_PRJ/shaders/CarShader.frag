@@ -61,13 +61,13 @@ void main() {
 
 	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
-	for (int i = 0; i < 2; i++) {
+	/*for (int i = 0; i < 2; i++) {
         finalColor += CalculateSpotlight(headlightPosition[i], headlightDirection[i], headlightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
     }
 
 	 for (int i = 0; i < 2; i++) {
        finalColor += CalculateSpotlight(rearLightPosition[i], rearLightDirection[i], rearLightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
-    }
+    }*/
 
 	outColor = vec4(finalColor, 1.0);
 }
