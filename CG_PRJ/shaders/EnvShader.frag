@@ -81,7 +81,7 @@ void main() {
 
 	fragColor = vec4(finalColor, 1.0f);*/
 	
-	fragColor = vec4(gubo.lightColor.rgb * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition), 1.0f);
+	fragColor = vec4(gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition), 1.0f);
 	 
 	vec4 i_sl_lightColor = rlubo.lightColorSpot; 
 	

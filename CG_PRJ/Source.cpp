@@ -151,9 +151,8 @@ protected:
 
 	// day - night cycle parameter 
 	float cTime = 0.0;
-	const float turnTime = 72.0f;
 	const float angTurnTimeFact = 2.0f * M_PI / 60.0f;
-
+	float turningTime = 0.0f; 
 
 	// Scene 
 	int scene = 0; 
@@ -506,23 +505,31 @@ protected:
 		vpMat = pMat * viewMatrix;
 		/************************************************************************************************/
 		
-
-		cTime = cTime + deltaT;
+		cTime +=  deltaT;
 		cTime = (cTime > 120.0f) ? (0.0f) : cTime;
+
+		if (cTime <= 60.0f && scene == 1) {
+			scene = 0; 
+			RebuildPipeline(); 
+		}
+		if (cTime > 60.0f && scene == 0) {
+			scene = 1;
+			RebuildPipeline();
+		}
+
+		turningTime += deltaT;
+		turningTime += (turningTime > 60.0f) ? (0.0f) : turningTime;
 
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		if (cTime <= 60.0f) {
-			g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(cTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(cTime * angTurnTimeFact));
+		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(turningTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(turningTime * angTurnTimeFact));
+		if (scene == 0) {
+			g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		}
-		else {
-			scene = 1; 
-			g_ubo.lightDir = glm::vec3(0.0f, -1.0f, 0.0f);
-			RebuildPipeline(); 
+		if (scene == 1) {
+			g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
 		}
-		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
 
@@ -623,7 +630,12 @@ protected:
 	
 
 		}
-		lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		if (scene == 0) {
+			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		}
+		if (scene == 1) {
+			lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
 		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
@@ -671,7 +683,13 @@ protected:
 				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
 				glm::vec4(0.0f, -1.0f, 0.15f, 1.0f);
 		}
-		lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+
+		if (scene == 0) {
+			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		}
+		if (scene == 1) {
+			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
 		DSturnRight.map(currentImage, &turn_right, 1);
 		DSturnRight.map(currentImage, &carLights_ubo, 2);
 		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 3);
@@ -716,7 +734,14 @@ protected:
 				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0)) *
 				glm::vec4(0.15f, -1.0f, 0.0f, 1.0f);
 		}
-		lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+
+		if (scene == 0) {
+			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		}
+		if (scene == 1) {
+			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
+
 		DSturnLeft.map(currentImage, &turn_left, 1);
 		DSturnLeft.map(currentImage, &carLights_ubo, 2);
 		DSturnLeft.map(currentImage, &lights_turn_left_road_ubo, 3);
