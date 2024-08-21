@@ -85,7 +85,7 @@ protected:
 	VertexDescriptor VDSkyBox;
 	Pipeline PSkyBox;
 	Model MSkyBox;
-	Texture TSkyBox, TStars;
+	Texture TSkyBox, TStars, Tclouds, Tday;
 	DescriptorSet DSSkyBox;
 
 	// Road
@@ -147,6 +147,17 @@ protected:
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
+
+
+	// day - night cycle parameter 
+	float cTime = 0.0;
+	const float turnTime = 72.0f;
+	const float angTurnTimeFact = 2.0f * M_PI / 60.0f;
+
+
+	// Scene 
+	int scene = 0; 
+
 	// Here you set the main application parameters
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -202,43 +213,47 @@ protected:
 				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION}
 			});
 
-			//Environment
-			VDenv.init(this, {
-					{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-				}, {
-					{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-					{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-					{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
-				});
+		//Environment
+		VDenv.init(this, {
+				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+			}, {
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+			});
+		
+		//Car
+		VDcar.init(this, {
+				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+			}, {
+				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
+				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
+				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+			});
+		
+		//----------------Pipelines----------------
+		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
+		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
+		Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLroad });
+		Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
+		
+		//----------------Models----------------
+		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
+		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
+		MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
+		MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+		MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
+		Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
+		
+		//----------------Textures----------------
+		TSkyBox.init(this, "textures/starmap_g4k.jpg");
+		Tenv.init(this, "textures/Textures_City.png");
+		TStars.init(this, "textures/constellation_figures.png");
+		Tclouds.init(this, "textures/2k_earth_clouds.jpg");
+		Tday.init(this, "textures/2k_earth_normal_map.png", VK_FORMAT_R8G8B8A8_UNORM);
 
-				//Car
-				VDcar.init(this, {
-						{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-					}, {
-						{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-						{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-						{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
-					});
 
-					//----------------Pipelines----------------
-					PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
-					PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
-					Proad.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLroad });
-					Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
-					Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
-
-					//----------------Models----------------
-					MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-					Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-					MstraightRoad.init(this, &VDenv, "models/road/straight.mgcg", MGCG);
-					MturnLeft.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-					MturnRight.init(this, &VDenv, "models/road/turn.mgcg", MGCG);
-					Mtile.init(this, &VDenv, "models/road/green_tile.mgcg", MGCG);
-
-					//----------------Textures----------------
-					TSkyBox.init(this, "textures/starmap_g4k.jpg");
-					Tenv.init(this, "textures/Textures_City.png");
-					TStars.init(this, "textures/constellation_figures.png");
 
 		DPSZs.uniformBlocksInPool = 16;				//# of uniform buffers (Global, SkyBox, Car, Road * 4, lights * (1 + 4 + 4))
 		DPSZs.texturesInPool = 7;					//# of textures (SkyBox, Stars, Car, Road * 3)
@@ -311,7 +326,12 @@ protected:
 	// Here you create your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsInit() {
 		//Descriptor Set initialization
-		DSSkyBox.init(this, &DSLSkyBox, { &TSkyBox, &TStars });
+		if (scene == 0) {
+			DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tday });
+		}
+		else {
+			DSSkyBox.init(this, &DSLSkyBox, { &TSkyBox, &TStars });
+		}
 		DSGlobal.init(this, &DSLGlobal, { });
 		DSstraightRoad.init(this, &DSLroad, { &Tenv });
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
@@ -485,14 +505,27 @@ protected:
 		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix;
 		/************************************************************************************************/
+		
+
+		cTime = cTime + deltaT;
+		cTime = (cTime > 120.0f) ? (0.0f) : cTime;
 
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)), sin(glm::radians(135.0f)), 0.0f);
+		if (cTime <= 60.0f) {
+			g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(cTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(cTime * angTurnTimeFact));
+		}
+		else {
+			scene = 1; 
+			g_ubo.lightDir = glm::vec3(0.0f, -1.0f, 0.0f);
+			RebuildPipeline(); 
+		}
 		g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
+
 
 
 		//Object Uniform Buffer creation
