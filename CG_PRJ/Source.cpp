@@ -172,6 +172,7 @@ protected:
 	float sun_cycle_duration = 60.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
+	float timeScene = 0.0f; 
 	glm::vec4 sunriseColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f);
 	glm::vec4 dayColor = glm::vec4(0.9f, 0.8f, 0.3f, 1.0f);
 	glm::vec4 sunsetColor = glm::vec4(1.0f, 0.55f, 0.2f, 1.0f);
@@ -669,17 +670,25 @@ protected:
 		//Global
 
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
 
-		switch(scene) {
+		if (scene != 3) {
+			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
+		}
+		else {
+			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
+		}
+
+		timeScene = turningTime - scene * daily_phase_duration;
+
+		switch (scene) {
 			case 0: //from sunrise to day
-				g_ubo.lightColor = glm::vec4(sunriseColor.x, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * turningTime, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				g_ubo.lightColor = glm::vec4(sunriseColor.x, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * timeScene, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * timeScene, 1.0f);
 				break; 
 			case 1: // from day to sunset
-				g_ubo.lightColor = glm::vec4(dayColor.x, dayColor.y - ((sunsetColor.y - dayColor.y) / daily_phase_duration) * turningTime, dayColor.z - ((dayColor.z - sunsetColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				g_ubo.lightColor = glm::vec4(dayColor.x, dayColor.y + ((sunsetColor.y - dayColor.y) / daily_phase_duration) * timeScene, dayColor.z + ((sunsetColor.z - dayColor.z) / daily_phase_duration) * timeScene, 1.0f);
 				break;
 			case 2: //from sunset to night
-				g_ubo.lightColor = glm::vec4(sunsetColor.x, sunsetColor.y - (sunsetColor.y / daily_phase_duration) * turningTime, sunsetColor.z -  (sunsetColor.z / daily_phase_duration) * turningTime, 1.0f);
+				g_ubo.lightColor = glm::vec4(sunsetColor.x - (sunsetColor.x / daily_phase_duration) * timeScene, sunsetColor.y - (sunsetColor.y / daily_phase_duration) * timeScene, sunsetColor.z - (sunsetColor.z / daily_phase_duration) * timeScene, 1.0f);
 				break; 
 			default: // night
 				g_ubo.lightColor = nightColor; 
