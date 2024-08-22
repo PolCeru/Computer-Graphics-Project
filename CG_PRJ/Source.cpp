@@ -679,7 +679,7 @@ protected:
 				g_ubo.lightColor = glm::vec4(dayColor.x, dayColor.y - ((sunsetColor.y - dayColor.y) / daily_phase_duration) * turningTime, dayColor.z - ((dayColor.z - sunsetColor.z) / daily_phase_duration) * turningTime, 1.0f);
 				break;
 			case 2: //from sunset to night
-				g_ubo.lightColor = glm::vec4(sunsetColor.x, sunsetColor.y + ((nightColor.y - sunsetColor.y) / daily_phase_duration) * turningTime, sunsetColor.z + ((nightColor.z - sunsetColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				g_ubo.lightColor = glm::vec4(sunsetColor.x, sunsetColor.y - (sunsetColor.y / daily_phase_duration) * turningTime, sunsetColor.z -  (sunsetColor.z / daily_phase_duration) * turningTime, 1.0f);
 				break; 
 			default: // night
 				g_ubo.lightColor = nightColor; 
