@@ -135,7 +135,7 @@ protected:
 
 	/******* APP PARAMETERS *******/
 	float ar;
-	float FOVy = glm::radians(60.0f);
+	float FOVy = glm::radians(75.0f);
 	float nearPlane = 0.1f;
 	float farPlane = 500.0f;
 	const int MAP_CENTER = MAP_SIZE / 2;
