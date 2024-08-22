@@ -1,5 +1,5 @@
 #include "modules/Starter.hpp"
-#define MAP_SIZE 15
+#define MAP_SIZE 23
 #define DIRECTIONS 4
 #define SCALING_FACTOR 16.0f
 

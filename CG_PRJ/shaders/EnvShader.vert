@@ -1,6 +1,6 @@
 #version 450
 
-const int MAP_SIZE = 15;
+const int MAP_SIZE = 23;
 
 layout(set = 1, binding = 1) uniform RoadUniformBufferObject {
 	mat4 mvpMat[MAP_SIZE * MAP_SIZE];
