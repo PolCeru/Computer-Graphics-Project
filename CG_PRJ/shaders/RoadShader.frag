@@ -6,7 +6,7 @@ const float SHININESS = 10.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
 
-const int MAP_SIZE = 23;
+const int MAP_SIZE = 15;
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 

@@ -4,7 +4,7 @@
 #include <string>
 #include <random>
 
-#define MAP_SIZE 23
+#define MAP_SIZE 15
 #define DIRECTIONS 4
 #define SCALING_FACTOR 16.0f
 
@@ -154,8 +154,8 @@ protected:
 	glm::vec3 upVector = glm::vec3(0, 1, 0);							//Up Vector
 
 	/******* CAR PARAMETERS *******/
-	glm::vec3 startingCarPos = glm::vec3(0.0f);
-	glm::vec3 updatedCarPos = glm::vec3(0.0f);
+	glm::vec3 startingCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
+	glm::vec3 updatedCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
@@ -167,10 +167,11 @@ protected:
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
-	// day - night cycle parameter 
-	float cTime = 0.0;
-	const float angTurnTimeFact = 2.0f * M_PI / 60.0f;
+	// day - night cycle parameter ;
 	float turningTime = 0.0f; 
+	float sun_cycle_duration = 60.0f;
+	float rad_per_sec = M_PI / sun_cycle_duration;
+
 
 	// Scene 
 	int scene = 0; 
@@ -295,12 +296,20 @@ protected:
 		Tenv.init(this, "textures/Textures_City.png");
 		TStars.init(this, "textures/constellation_figures.png");
 		Tclouds.init(this, "textures/2k_earth_clouds.jpg");
-		Tday.init(this, "textures/2k_earth_normal_map.png", VK_FORMAT_R8G8B8A8_UNORM);
+		//Tday.init(this, "textures/2k_earth_normal_map.png", VK_FORMAT_R8G8B8A8_UNORM);
+		Tday.init(this, "textures/SkyAfterNoon.png");
+		//Tday.init(this, "textures/SkyMorning.png");
 
-		DPSZs.uniformBlocksInPool = (7+Menv.size())*4;		//# of uniform buffers (Global, SkyBox, Car, Road * 4, Menv.size) * 4 
-		DPSZs.texturesInPool = 3;							//# of textures (SkyBox, Stars, City)
-		DPSZs.setsInPool = 7+Menv.size();  					//# of DS (Global, SkyBox, Car, Road * 4, Menv.size()) //7+37
+
+		/*DPSZs.uniformBlocksInPool = (7 + Menv.size()) * 4;		//# of uniform buffers (Global, SkyBox, Car, Road * 4, Menv.size) * 4 
+		DPSZs.texturesInPool = 20;							//# of textures (SkyBox, Stars, City)
+		DPSZs.setsInPool = 7+Menv.size();  					//# of DS (Global, SkyBox, Car, Road * 4, Menv.size()) //7+37*/
 		
+		DPSZs.uniformBlocksInPool = 500;		
+		DPSZs.texturesInPool = 500;							
+		DPSZs.setsInPool = 500;  					
+
+
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
 		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
@@ -609,27 +618,34 @@ protected:
 		vpMat = pMat * viewMatrix;
 		/************************************************************************************************/
 		
-		cTime +=  deltaT;
-		cTime = (cTime > 120.0f) ? (0.0f) : cTime;
+		turningTime += deltaT;
 
-		if (cTime <= 60.0f && scene == 1) {
-			scene = 0; 
-			RebuildPipeline(); 
+		if (turningTime > sun_cycle_duration && scene == 1) {
+			turningTime = 0.0f; 
+			scene = 0;
+			RebuildPipeline();
 		}
-		if (cTime > 60.0f && scene == 0) {
+		if (turningTime > sun_cycle_duration && scene == 0) {
+			turningTime = 0.0f; 
 			scene = 1;
 			RebuildPipeline();
 		}
 
-		turningTime += deltaT;
-		turningTime += (turningTime > 60.0f) ? (0.0f) : turningTime;
-
 		//Update global uniforms				
 		//Global
 		GlobalUniformBufferObject g_ubo{};
-		g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(turningTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(turningTime * angTurnTimeFact));
+
+		//g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(turningTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(turningTime * angTurnTimeFact));
+
+		g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
+
 		if (scene == 0) {
-			g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+			//g_ubo.lightColor = glm::vec4(1.0f, 0.39f + ((0.87f - 0.39f) / (sun_cycle_duration / 3)) * turningTime, 0.28f - ((0.4f - 0.2f) / (sun_cycle_duration / 3)) * turningTime, 1.0f); 
+
+			//g_ubo.lightColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f); //alba
+			//g_ubo.lightColor = glm::vec4(1.0f, 0.87f, 0.4f, 1.0f); //pieno giorno
+			g_ubo.lightColor = glm::vec4(1.0f, 0.55f, 0.2f, 1.0f); //tramonto 
 		}
 		if (scene == 1) {
 			g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
@@ -839,7 +855,7 @@ protected:
 		}
 
 		if (scene == 0) {
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f);
 		}
 		if (scene == 1) {
 			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);

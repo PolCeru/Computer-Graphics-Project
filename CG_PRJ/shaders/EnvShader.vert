@@ -1,6 +1,6 @@
 #version 450
 
-const int MAP_SIZE = 23;
+const int MAP_SIZE = 15;
 
 layout(set = 1, binding = 0) uniform EnvironmentUniformBufferObject {
 	mat4 mvpMat[MAP_SIZE * MAP_SIZE];
