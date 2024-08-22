@@ -96,7 +96,7 @@ protected:
 	VertexDescriptor VDSkyBox;
 	Pipeline PSkyBox;
 	Model MSkyBox;
-	Texture TSkyBox, TStars, Tclouds, Tday;
+	Texture TSkyBox, TStars, Tclouds, Tsunrise, Tday, Tsunset;
 	DescriptorSet DSSkyBox;
 
 	//Road
@@ -167,11 +167,15 @@ protected:
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
-	// day - night cycle parameter ;
+	/************ DAY PHASES PARAMETERS *****************/
 	float turningTime = 0.0f; 
 	float sun_cycle_duration = 60.0f;
+	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
-
+	glm::vec4 sunriseColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f);
+	glm::vec4 dayColor = glm::vec4(0.9f, 0.8f, 0.3f, 1.0f);
+	glm::vec4 sunsetColor = glm::vec4(1.0f, 0.55f, 0.2f, 1.0f);
+	glm::vec4 nightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	// Scene 
 	int scene = 0; 
@@ -295,10 +299,10 @@ protected:
 		TSkyBox.init(this, "textures/starmap_g4k.jpg");
 		Tenv.init(this, "textures/Textures_City.png");
 		TStars.init(this, "textures/constellation_figures.png");
-		Tclouds.init(this, "textures/2k_earth_clouds.jpg");
-		//Tday.init(this, "textures/2k_earth_normal_map.png", VK_FORMAT_R8G8B8A8_UNORM);
-		Tday.init(this, "textures/SkyAfterNoon.png");
-		//Tday.init(this, "textures/SkyMorning.png");
+		Tclouds.init(this, "textures/Clouds.jpg");
+		Tsunrise.init(this, "textures/SkySunrise.png"); 
+		Tday.init(this, "textures/SkyDay.png"); 
+		Tsunset.init(this, "textures/SkySunset.png");
 
 
 		/*DPSZs.uniformBlocksInPool = (7 + Menv.size()) * 4;		//# of uniform buffers (Global, SkyBox, Car, Road * 4, Menv.size) * 4 
@@ -416,12 +420,22 @@ protected:
 	// Here you create your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsInit() {
 		//Descriptor Set initialization
-		if (scene == 0) {
-			DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tday });
+
+		switch (scene) {
+			case 0 : 
+				DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tsunrise });
+				break; 
+			case 1:
+				DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tday });
+				break;
+			case 2:
+				DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tsunset });
+				break; 
+			default:
+				DSSkyBox.init(this, &DSLSkyBox, { &TSkyBox, &TStars });
+				break;
 		}
-		else {
-			DSSkyBox.init(this, &DSLSkyBox, { &TSkyBox, &TStars });
-		}
+
 		DSGlobal.init(this, &DSLGlobal, { });
 		DSstraightRoad.init(this, &DSLroad, { &Tenv });
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
@@ -471,6 +485,12 @@ protected:
 		TSkyBox.cleanup();
 		TStars.cleanup();
 		Tenv.cleanup();
+		Tsunrise.cleanup(); 
+		Tday.cleanup(); 
+		Tsunset.cleanup(); 
+
+		
+
 
 		//Models Cleanup
 		MSkyBox.cleanup();
@@ -620,40 +640,53 @@ protected:
 		
 		turningTime += deltaT;
 
-		if (turningTime > sun_cycle_duration && scene == 1) {
-			turningTime = 0.0f; 
-			scene = 0;
+		turningTime = (turningTime >= 2.0 * sun_cycle_duration) ? 0.0f : turningTime;
+
+
+		if (turningTime > daily_phase_duration && scene == 0) {
+			scene = 1; 
 			RebuildPipeline();
 		}
-		if (turningTime > sun_cycle_duration && scene == 0) {
-			turningTime = 0.0f; 
-			scene = 1;
-			RebuildPipeline();
+
+		if (turningTime > 2.0f * daily_phase_duration && scene == 1) {
+			scene = 2; 
+			RebuildPipeline(); 
 		}
+
+		if (turningTime > sun_cycle_duration && scene == 2) {
+			scene = 3; 
+			RebuildPipeline(); 
+		}
+
+		if (turningTime <= daily_phase_duration && scene == 3) {
+			scene = 0; 
+			RebuildPipeline(); 
+		}
+		
+		
 
 		//Update global uniforms				
 		//Global
+
 		GlobalUniformBufferObject g_ubo{};
-
-		//g_ubo.lightDir = glm::vec3(cos(glm::radians(135.0f)) * cos(turningTime * angTurnTimeFact), sin(glm::radians(135.0f)), cos(glm::radians(135.0f)) * sin(turningTime * angTurnTimeFact));
-
 		g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
 
-		if (scene == 0) {
-
-			//g_ubo.lightColor = glm::vec4(1.0f, 0.39f + ((0.87f - 0.39f) / (sun_cycle_duration / 3)) * turningTime, 0.28f - ((0.4f - 0.2f) / (sun_cycle_duration / 3)) * turningTime, 1.0f); 
-
-			//g_ubo.lightColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f); //alba
-			//g_ubo.lightColor = glm::vec4(1.0f, 0.87f, 0.4f, 1.0f); //pieno giorno
-			g_ubo.lightColor = glm::vec4(1.0f, 0.55f, 0.2f, 1.0f); //tramonto 
-		}
-		if (scene == 1) {
-			g_ubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f);
+		switch(scene) {
+			case 0: //from sunrise to day
+				g_ubo.lightColor = glm::vec4(sunriseColor.x, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * turningTime, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				break; 
+			case 1: // from day to sunset
+				g_ubo.lightColor = glm::vec4(dayColor.x, dayColor.y - ((sunsetColor.y - dayColor.y) / daily_phase_duration) * turningTime, dayColor.z - ((dayColor.z - sunsetColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				break;
+			case 2: //from sunset to night
+				g_ubo.lightColor = glm::vec4(sunsetColor.x, sunsetColor.y + ((nightColor.y - sunsetColor.y) / daily_phase_duration) * turningTime, sunsetColor.z + ((nightColor.z - sunsetColor.z) / daily_phase_duration) * turningTime, 1.0f);
+				break; 
+			default: // night
+				g_ubo.lightColor = nightColor; 
+				break; 
 		}
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
-
-
 
 		//Object Uniform Buffer creation
 		//SkyBox
@@ -746,14 +779,12 @@ protected:
 					glm::vec4(-0.15f, -1.0f, 0.0f, 1.0f);
 			//}
 
-	
-
 		}
-		if (scene == 0) {
-			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		}
-		if (scene == 1) {
+		if (scene == 3) {
 			lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
+		else {
+			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
@@ -803,11 +834,11 @@ protected:
 				glm::vec4(0.0f, -1.0f, 0.15f, 1.0f);
 		}
 
-		if (scene == 0) {
-			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		}
-		if (scene == 1) {
+		if (scene == 3) {
 			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
+		else {
+			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		DSturnRight.map(currentImage, &turn_right, 1);
 		DSturnRight.map(currentImage, &carLights_ubo, 2);
@@ -854,11 +885,11 @@ protected:
 				glm::vec4(0.15f, -1.0f, 0.0f, 1.0f);
 		}
 
-		if (scene == 0) {
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 100.0f);
-		}
-		if (scene == 1) {
+		if (scene == 3) {
 			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		}
+		else{
+			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 
 		DSturnLeft.map(currentImage, &turn_left, 1);
