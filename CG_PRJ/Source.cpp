@@ -4,7 +4,7 @@
 #include <string>
 #include <random>
 
-#define MAP_SIZE 15
+#define MAP_SIZE 23
 #define DIRECTIONS 4
 #define SCALING_FACTOR 16.0f
 
@@ -154,8 +154,10 @@ protected:
 	glm::vec3 upVector = glm::vec3(0, 1, 0);							//Up Vector
 
 	/******* CAR PARAMETERS *******/
-	glm::vec3 startingCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
-	glm::vec3 updatedCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
+	//glm::vec3 startingCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
+	//glm::vec3 updatedCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
+	glm::vec3 startingCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 updatedCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
@@ -173,10 +175,13 @@ protected:
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f; 
+	float timeFactor = 0.0f; 
 	glm::vec4 sunriseColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f);
 	glm::vec4 dayColor = glm::vec4(0.9f, 0.8f, 0.3f, 1.0f);
 	glm::vec4 sunsetColor = glm::vec4(1.0f, 0.55f, 0.2f, 1.0f);
-	glm::vec4 nightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	glm::vec4 moonColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	glm::vec3 startingColor = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	// Scene 
 	int scene = 0; 
@@ -674,21 +679,27 @@ protected:
 		}
 
 		timeScene = turningTime - scene * daily_phase_duration;
+		timeFactor = timeScene / daily_phase_duration;
 
 		switch (scene) {
 			case 0: //from sunrise to day
-				g_ubo.lightColor = glm::vec4(sunriseColor.x + ((dayColor.x - sunriseColor.x) / daily_phase_duration) * timeScene, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * timeScene, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * timeScene, 1.0f);
+				startingColor = glm::vec3(sunriseColor); 
+				finalColor = glm::vec3(dayColor); 
 				break; 
 			case 1: // from day to sunset
-				g_ubo.lightColor = glm::vec4(dayColor.x + ((sunsetColor.x - dayColor.y) / daily_phase_duration) * timeScene, dayColor.y + ((sunsetColor.y - dayColor.y) / daily_phase_duration) * timeScene, dayColor.z + ((sunsetColor.z - dayColor.z) / daily_phase_duration) * timeScene, 1.0f);
+				startingColor = glm::vec3(dayColor); 
+				finalColor = glm::vec3(sunsetColor); 
 				break;
 			case 2: //from sunset to night
-				g_ubo.lightColor = glm::vec4(sunsetColor.x - (sunsetColor.x / daily_phase_duration) * timeScene, sunsetColor.y - (sunsetColor.y / daily_phase_duration) * timeScene, sunsetColor.z - (sunsetColor.z / daily_phase_duration) * timeScene, 1.0f);
+				startingColor = glm::vec3(sunsetColor); 
+				finalColor = glm::vec3(0.0f, 0.0f, 0.0f); 
 				break; 
 			default: // night
-				g_ubo.lightColor = nightColor; 
+				startingColor = glm::vec3(moonColor); 
+				finalColor = glm::vec3(moonColor);
 				break; 
 		}
+		g_ubo.lightColor = glm::vec4(startingColor * (1 - timeFactor) + finalColor * timeFactor, 1.0f);
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
 
@@ -712,14 +723,22 @@ protected:
 			glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
 			carLights_ubo.headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
 			carLights_ubo.headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
-			//carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
-			carLights_ubo.headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); //white
+			if (scene == 3) {
+				carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
+			}
+			else {
+				carLights_ubo.headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+			}
 
 			lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
 			carLights_ubo.rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
 			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
-			//carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
-			carLights_ubo.rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); //red
+			if (scene == 3) {
+				carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
+			}
+			else {
+				carLights_ubo.rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+			}
 
 		}
 		DScar.map(currentImage, &carLights_ubo, 2);
