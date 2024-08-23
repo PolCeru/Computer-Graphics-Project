@@ -209,7 +209,7 @@ protected:
 		//Skybox
 		DSLSkyBox.init(this, {
 					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(skyBoxUniformBufferObject), 1},
-					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
+					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},		
 					{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1}
 			});
 
@@ -306,14 +306,9 @@ protected:
 		Tsunset.init(this, "textures/SkySunset.png");
 
 
-		/*DPSZs.uniformBlocksInPool = (7 + Menv.size()) * 4;		//# of uniform buffers (Global, SkyBox, Car, Road * 4, Menv.size) * 4 
-		DPSZs.texturesInPool = 20;							//# of textures (SkyBox, Stars, City)
-		DPSZs.setsInPool = 7+Menv.size();  					//# of DS (Global, SkyBox, Car, Road * 4, Menv.size()) //7+37*/
-		
-		DPSZs.uniformBlocksInPool = 500;		
-		DPSZs.texturesInPool = 500;							
-		DPSZs.setsInPool = 500;  					
-
+		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
+		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
+		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
 
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -489,7 +484,7 @@ protected:
 		Tsunrise.cleanup(); 
 		Tday.cleanup(); 
 		Tsunset.cleanup(); 
-
+		Tclouds.cleanup(); 
 		
 
 
@@ -682,10 +677,10 @@ protected:
 
 		switch (scene) {
 			case 0: //from sunrise to day
-				g_ubo.lightColor = glm::vec4(sunriseColor.x, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * timeScene, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * timeScene, 1.0f);
+				g_ubo.lightColor = glm::vec4(sunriseColor.x + ((dayColor.x - sunriseColor.x) / daily_phase_duration) * timeScene, sunriseColor.y + ((dayColor.y - sunriseColor.y) / daily_phase_duration) * timeScene, sunriseColor.z + ((dayColor.z - sunriseColor.z) / daily_phase_duration) * timeScene, 1.0f);
 				break; 
 			case 1: // from day to sunset
-				g_ubo.lightColor = glm::vec4(dayColor.x, dayColor.y + ((sunsetColor.y - dayColor.y) / daily_phase_duration) * timeScene, dayColor.z + ((sunsetColor.z - dayColor.z) / daily_phase_duration) * timeScene, 1.0f);
+				g_ubo.lightColor = glm::vec4(dayColor.x + ((sunsetColor.x - dayColor.y) / daily_phase_duration) * timeScene, dayColor.y + ((sunsetColor.y - dayColor.y) / daily_phase_duration) * timeScene, dayColor.z + ((sunsetColor.z - dayColor.z) / daily_phase_duration) * timeScene, 1.0f);
 				break;
 			case 2: //from sunset to night
 				g_ubo.lightColor = glm::vec4(sunsetColor.x - (sunsetColor.x / daily_phase_duration) * timeScene, sunsetColor.y - (sunsetColor.y / daily_phase_duration) * timeScene, sunsetColor.z - (sunsetColor.z / daily_phase_duration) * timeScene, 1.0f);
