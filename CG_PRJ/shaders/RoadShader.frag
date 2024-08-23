@@ -1,12 +1,20 @@
 #version 450
 
-const float HEADLIGHT_INNER_CUTOFF = 1.0;
-const float HEADLIGHT_OUTER_CUTOFF = 0.5;
+// shader params
 const float SHININESS = 10.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
-
 const int MAP_SIZE = 23;
+
+// params for the car lights
+const float HEADLIGHT_INNER_CUTOFF = 1.0;
+const float HEADLIGHT_OUTER_CUTOFF = 0.3;
+
+// params for the road lights
+const float G = 3.5;
+const float BETA = 3.0;
+const float SPOTLIGHT_INNER_CUTOFF = 0.95;
+const float SPOTLIGHT_OUTER_CUTOFF = 0.6;
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 
@@ -65,17 +73,18 @@ vec3 CalculateSpotlight(vec3 lightPos, vec3 lightDir, vec4 lightColor, vec3 norm
 }
 
 void main() {
-	//Spotlight lamp
+	//shader params
+	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
+	vec3 normal = normalize(fragNorm);
+	vec3 ambient = AMBIENT_INTENSITY * texColor;
+
+	//Spotlight lamp params
 	vec4 i_sl_lightPos; 
 	vec4 i_sl_spotDir; 
 	vec4 i_sl_lightColor = rlubo.lightColorSpot; 
 	vec3 spotLight_lightDirection; 
 	
-	//shader params
-	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
-	vec3 normal = normalize(fragNorm);
-	vec3 ambient = AMBIENT_INTENSITY * texColor;  
-
+	//Calculate the final color
 	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
     for (int i = 0; i < 2; i++) {
@@ -90,7 +99,9 @@ void main() {
 		i_sl_lightPos = rlubo.spotLight_lightPosition[current][i]; 
 		i_sl_spotDir = rlubo.spotLight_spotDirection[current][i];
 		vec3 spotLight_lightDirection = normalize(fragPos - vec3(i_sl_lightPos));
-		finalColor += i_sl_lightColor.rgb * i_sl_lightColor.a * pow(3.0 / length(fragPos - vec3(i_sl_lightPos)), 2.0) * clamp((dot(spotLight_lightDirection, vec3(i_sl_spotDir)) - 0.8) / 0.1, 0.0, 1.0);
+		finalColor += i_sl_lightColor.rgb * 
+					  i_sl_lightColor.a *
+					  pow(G / length(fragPos - vec3(i_sl_lightPos)), BETA) * clamp((dot(spotLight_lightDirection, vec3(i_sl_spotDir)) - SPOTLIGHT_OUTER_CUTOFF) / (SPOTLIGHT_INNER_CUTOFF - SPOTLIGHT_OUTER_CUTOFF), 0.0, 1.0);
 	}
 	
 	fragColor = vec4(finalColor, 1.0f);

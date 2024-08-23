@@ -158,12 +158,12 @@ protected:
 	glm::vec3 updatedCarPos = glm::vec3(0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
-	const float carAcceleration = 8.0f;						// [m/s^2]
-	const float carDeceleration = 4.0f;
+	const float carAcceleration = 16.0f;						// [m/s^2]
+	const float carDeceleration = 8.0f;
 	const float friction = 0.7f;
-	const float carSteeringSpeed = glm::radians(30.0f);
+	const float carSteeringSpeed = glm::radians(60.0f);
 	const float carDampingSpeed = 5.0f;
-	const float braking = 6.0f;
+	const float braking = 25.0f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
@@ -173,7 +173,7 @@ protected:
 	float turningTime = 0.0f; 
 
 	// Scene 
-	int scene = 0; 
+	int scene = 1; 
 
 	// Here you set the main application parameters
 	void setWindowParameters() {
@@ -462,6 +462,8 @@ protected:
 		TSkyBox.cleanup();
 		TStars.cleanup();
 		Tenv.cleanup();
+		Tday.cleanup();
+		Tclouds.cleanup();
 
 		//Models Cleanup
 		MSkyBox.cleanup();
@@ -612,17 +614,17 @@ protected:
 		cTime +=  deltaT;
 		cTime = (cTime > 120.0f) ? (0.0f) : cTime;
 
-		if (cTime <= 60.0f && scene == 1) {
-			scene = 0; 
+		if (cTime <= 600.0f && scene == 0) {
+			scene = 1; 
 			RebuildPipeline(); 
 		}
-		if (cTime > 60.0f && scene == 0) {
-			scene = 1;
+		if (cTime > 600.0f && scene == 1) {
+			scene = 0;
 			RebuildPipeline();
 		}
 
 		turningTime += deltaT;
-		turningTime += (turningTime > 60.0f) ? (0.0f) : turningTime;
+		turningTime += (turningTime > 600.0f) ? (0.0f) : turningTime;
 
 		//Update global uniforms				
 		//Global
@@ -636,7 +638,6 @@ protected:
 		}
 		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, &g_ubo, 0);
-
 
 
 		//Object Uniform Buffer creation
@@ -660,13 +661,11 @@ protected:
 			carLights_ubo.headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
 			carLights_ubo.headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
 			//carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
-			carLights_ubo.headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); //white
 
 			lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
 			carLights_ubo.rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
 			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
 			//carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
-			carLights_ubo.rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f); //red
 
 		}
 		DScar.map(currentImage, &carLights_ubo, 2);
@@ -682,63 +681,51 @@ protected:
 			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
 			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
 			
-			lights_straight_road_ubo.spotLight_lightPosition[i][0] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-					glm::vec4(-4.9f, 5.0f, 0.0f, 1.0f)
-
-				);
-			lights_straight_road_ubo.spotLight_spotDirection[i][0] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *  
-				glm::vec4(0.15f, -1.0f, 0.0f, 1.0f);
-
-			lights_straight_road_ubo.spotLight_lightPosition[i][1] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-					glm::vec4(4.9f, 5.0f, 8.0f, 1.0f)
-				);
-
-			lights_straight_road_ubo.spotLight_spotDirection[i][1] = 
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
-				glm::vec4(-0.15f, -1.0f, 0.0f, 1.0f);
-		
-			bool conditionMet = false;
+			bool oneCondition = false;
+			bool m_oneCondition = false;
 			int directions[4][2] = { {-1, 0}, {1, 0}, {0, -1}, {0, 1} }; // Up, Down, Left, Right
 
 			for (int i = 0; i < 4; i++) {
 				int newN = n + directions[i][0];
 				int newM = m + directions[i][1];
 
+				// Check if the neighboring cell has type 1 or 2
 				if (mapLoaded[newN][newM].type == 1 || mapLoaded[newN][newM].type == 2) {
-					conditionMet = true;
-					break;
+					// Identify the condition based on the direction
+					if (directions[i][0] >= 0 && directions[i][1] >= 0) {
+						oneCondition = true;
+					} else if (directions[i][0] <= 0 && directions[i][1] <= 0) {
+						m_oneCondition = true;
+					}
 				}
 			}
 
-			//if (!conditionMet) {
-				lights_straight_road_ubo.spotLight_lightPosition[i][2] =
-					glm::vec4(
-						(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-							glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-						glm::vec4(4.9f, 5.0f, -8.0f, 1.0f)
-					);
+			glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0));
+			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
 
-				lights_straight_road_ubo.spotLight_spotDirection[i][2] =
-					glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
-					glm::vec4(-0.15f, -1.0f, 0.0f, 1.0f);
-			//}
+			// Spot positions //0 middle, 1 previous, 2 next (the one furthest from the model)
+			lights_straight_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-4.9f, 4.9f, -0.2f, 1.0f);
+			lights_straight_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.0f, 1.0f);
+			
+			if (!oneCondition){
+				lights_straight_road_ubo.spotLight_lightPosition[i][1] = transform * glm::vec4(4.9f, 4.9f, 7.8f, 1.0f);
+				lights_straight_road_ubo.spotLight_spotDirection[i][1] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
+			}
 
-	
-
+			if (!m_oneCondition){
+				lights_straight_road_ubo.spotLight_lightPosition[i][2] = transform * glm::vec4(4.9f, 4.9f, -7.8f, 1.0f);
+				lights_straight_road_ubo.spotLight_spotDirection[i][2] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
+			} 
+			
 		}
+
 		if (scene == 0) {
 			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		if (scene == 1) {
-			lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
+
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
 		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
@@ -752,51 +739,27 @@ protected:
 								 glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			turn_right.mvpMat[i] = vpMat * turn_right.mMat[i];
 			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));		
-			lights_turn_right_road_ubo.spotLight_lightPosition[i][0] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-					glm::vec4(-4.9f, 5.0f, -4.0f, 1.0f)
+			
+			glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0));
+			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
 
-				);
-			lights_turn_right_road_ubo.spotLight_spotDirection[i][0] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
-				glm::vec4(0.15f, -1.0f, 0.0f, 1.0f);
+			// Spot positions
+			lights_turn_right_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-4.85f, 4.9f, -5.9f, 1.0f);
 
-			lights_turn_right_road_ubo.spotLight_lightPosition[i][1] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-					glm::vec4(4.9f, 5.0f, 6.0f, 1.0f)
-				);
-
-			lights_turn_right_road_ubo.spotLight_spotDirection[i][1] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
-				glm::vec4(-0.15f, -1.0f, 0.0f, 1.0f);
-
-
-			lights_turn_right_road_ubo.spotLight_lightPosition[i][2] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0))) *
-					glm::vec4(2.0f, 5.0f, -4.0f, 1.0f)
-				);
-
-			lights_turn_right_road_ubo.spotLight_spotDirection[i][2] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0)) *
-				glm::vec4(0.0f, -1.0f, 0.15f, 1.0f);
+			// Spot directions
+			lights_turn_right_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.4f, 1.0f);
 		}
 
 		if (scene == 0) {
 			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		if (scene == 1) {
-			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
+
 		DSturnRight.map(currentImage, &turn_right, 1);
 		DSturnRight.map(currentImage, &carLights_ubo, 2);
 		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 3);
-
 
 		RoadUniformBufferObject turn_left{};
 		RoadLightsUniformBufferObject lights_turn_left_road_ubo{}; 
@@ -807,42 +770,22 @@ protected:
 								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
 			turn_left.mvpMat[i] = vpMat * turn_left.mMat[i];
 			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
-			lights_turn_left_road_ubo.spotLight_lightPosition[i][0] = 
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0))) *
-					glm::vec4(-5.0f, 5.0f, 6.0f, 1.0f)
-				);
-			lights_turn_left_road_ubo.spotLight_spotDirection[i][0] = 
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0)) *
-				glm::vec4(0.0f, -1.0f, -0.15f, 1.0f);
-				
-			lights_turn_left_road_ubo.spotLight_lightPosition[i][1] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0))) *
-					glm::vec4(5.0f, 5.0f, -6.0f, 1.0f)
-				);
-			lights_turn_left_road_ubo.spotLight_spotDirection[i][1] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0)) *
-				glm::vec4(0.0f, -1.0f , 0.15f, 1.0f);
 
-			lights_turn_left_road_ubo.spotLight_lightPosition[i][2] =
-				glm::vec4(
-					(glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-						glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0))) *
-					glm::vec4(-5.0f, 5.0f, -2.0f, 1.0f)
-				);
-			lights_turn_left_road_ubo.spotLight_spotDirection[i][2] =
-				glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0)) *
-				glm::vec4(0.15f, -1.0f, 0.0f, 1.0f);
+			glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0));
+			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
+
+			// Spot positions
+			lights_turn_left_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-5.8f, 5.0f, 4.65f, 1.0f);
+
+			// Spot directions
+			lights_turn_left_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, -0.4f, 1.0f);
 		}
 
 		if (scene == 0) {
 			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		if (scene == 1) {
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
 
 		DSturnLeft.map(currentImage, &turn_left, 1);
@@ -859,8 +802,8 @@ protected:
 			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
 			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
 			tile_lights.spotLight_lightPosition[i][0] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
-			tile_lights.spotLight_spotDirection[i][0] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
 			tile_lights.spotLight_lightPosition[i][1] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
+			tile_lights.spotLight_spotDirection[i][0] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
 			tile_lights.spotLight_spotDirection[i][1] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
 		}
 		tile_lights.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
