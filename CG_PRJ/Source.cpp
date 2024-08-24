@@ -85,7 +85,7 @@ struct skyBoxVertex {
 };
 
 // MAIN
-class A10 : public BaseProject {
+class CG_PRJ : public BaseProject {
 protected:
 	//Global
 	DescriptorSetLayout DSLGlobal;
@@ -160,25 +160,25 @@ protected:
 	glm::vec3 updatedCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
-	const float carAcceleration = 16.0f;						// [m/s^2]
-	const float carDeceleration = 8.0f;
-	const float friction = 0.7f;
-	const float carSteeringSpeed = glm::radians(60.0f);
-	const float carDampingSpeed = 5.0f;
-	const float braking = 25.0f;
+	const float carAcceleration = 8.0f;						// [m/s^2]
+	const float brakingStrength = 25.0f;
+	const float gravity = 9.81f;								// [m/s^2]
+	const float friction = 0.7f * gravity;
+	float carSteeringSpeed = glm::radians(60.0f);
+	const float carDamping = 5.0f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
 
 	/************ DAY PHASES PARAMETERS *****************/
 	float turningTime = 0.0f; 
-	float sun_cycle_duration = 60.0f;
+	float sun_cycle_duration = 120.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f; 
 	float timeFactor = 0.0f; 
 	glm::vec4 sunriseColor = glm::vec4(1.0f, 0.39f, 0.28f, 1.0f);
 	glm::vec4 dayColor = glm::vec4(0.75f, 0.65f, 0.3f, 1.0f);
-	glm::vec4 sunsetColor = glm::vec4(0.85f, 0.55f, 0.2f, 1.0f);
+	glm::vec4 sunsetColor = glm::vec4(0.85f, 0.5f, 0.2f, 1.0f);
 	glm::vec4 moonColor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
 	glm::vec3 startingColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -580,36 +580,52 @@ protected:
 		glm::mat4 vpMat;													//View Projection Matrix
 
 		/************************************* MOTION OF THE CAR *************************************/
-		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
-			carVelocity -= braking * deltaT;
-		}
-
-		if (m.z < 0) { // w pressed
-			carVelocity += carAcceleration * deltaT;
-			carVelocity = glm::min(carVelocity, 89.0f);
-		}
-		if (m.z > 0) { // s pressed
-			m.x *= -1;
-			if (carVelocity <= 0) {
-				carVelocity -= carDeceleration * deltaT;
-				carVelocity = glm::max(carVelocity, -35.0f);
+		bool handbrake = false;
+		if(glfwGetKey(window, GLFW_KEY_SPACE)){
+			handbrake = true;
+			if (carVelocity > 0){
+				carVelocity -= brakingStrength * 2 * deltaT;
 			}
 		}
-		else {
-			carVelocity -= friction * 9.81 * deltaT;
-			carVelocity = glm::max(carVelocity, 0.0f);
+		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
+
+		if (m.z < 0) { // w pressed
+			if (carVelocity >= 0) {
+			carVelocity += carAcceleration * deltaT;
+				carVelocity = glm::min(carVelocity, 70.0f);			
+			} else {
+				carVelocity += brakingStrength * deltaT;
+		} 
+		} 
+		else if (m.z > 0) { // s pressed
+			if (carVelocity > 0) { // car is moving forward, decelerate
+				carVelocity -= brakingStrength * deltaT;
+			}
+			else { // car is moving backwards, accelerate in the opposite direction
+				m.x *= -1;
+				carVelocity -= carAcceleration * deltaT;
+				carVelocity = glm::max(carVelocity, -15.0f);
+			}
+		} else { // no acceleration or deceleration
+			if (carVelocity > 0.0f){ 
+				carVelocity -= friction * deltaT;
+				carVelocity = glm::max(carVelocity, 0.0f);
+			}
+			else if (carVelocity < 0.0f){
+				m.x *= -1;
+				carVelocity += friction * deltaT;
+				carVelocity = glm::min(carVelocity, 0.0f);
+			}
 		}
 
+		// Handle steering
 		if (carVelocity != 0.0f)
 			steeringAng += -m.x * carSteeringSpeed * deltaT;
 
-		/*steeringAng = (steeringAng < glm::radians(-35.0f) ? glm::radians(-35.0f) :
-			(steeringAng > glm::radians(35.0f) ? glm::radians(35.0f) : steeringAng));*/
-
 		startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
 		startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
-		updatedCarPos.z = updatedCarPos.z * std::exp(-carDampingSpeed * deltaT) + startingCarPos.z * (1 - std::exp(-carDampingSpeed * deltaT));
-		updatedCarPos.x = updatedCarPos.x * std::exp(-carDampingSpeed * deltaT) + startingCarPos.x * (1 - std::exp(-carDampingSpeed * deltaT));
+		updatedCarPos.z = updatedCarPos.z * std::exp(-carDamping * deltaT) + startingCarPos.z * (1 - std::exp(-carDamping * deltaT));
+		updatedCarPos.x = updatedCarPos.x * std::exp(-carDamping * deltaT) + startingCarPos.x * (1 - std::exp(-carDamping * deltaT));
 
 		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.x)); //boundaries
 		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.z)); //boundaries
@@ -865,8 +881,7 @@ protected:
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
 			int n = mapIndexes[NONE][i].first;
 			int m = mapIndexes[NONE][i].second;
-			r_tile.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
-							 glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.12f, 0.0f));
+			r_tile.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
 			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
 			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
 			tile_lights.spotLight_lightPosition[i][0] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
@@ -885,7 +900,8 @@ protected:
 			for (int j = 0; j < envIndexesPerModel[i].size(); j++) {
 				int n = envIndexesPerModel[i][j].first;
 				int m = envIndexesPerModel[i][j].second;
-				env_ubo.mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
+				env_ubo.mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos)*
+								  glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, +0.2f, 0.0f));;
 				env_ubo.mvpMat[j] = vpMat * env_ubo.mMat[j];
 				env_ubo.nMat[j] = glm::inverse(glm::transpose(env_ubo.mMat[j]));
 			}
@@ -897,7 +913,7 @@ protected:
 
 // This is the main: probably you do not need to touch this!
 int main() {
-	A10 app;
+	CG_PRJ app;
 
 	try {
 		app.run();
