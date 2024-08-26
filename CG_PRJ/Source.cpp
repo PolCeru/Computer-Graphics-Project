@@ -111,8 +111,6 @@ protected:
 	DescriptorSet DSturnLeft;
 	DescriptorSet DSturnRight;
 	DescriptorSet DStile;
-	std::vector<std::vector<RoadPosition>> mapLoaded;
-	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 
 	//Car
 	DescriptorSetLayout DSLcar;
@@ -135,41 +133,49 @@ protected:
 
 	/******* APP PARAMETERS *******/
 	float ar;
-	float FOVy = glm::radians(75.0f);
-	float nearPlane = 0.1f;
-	float farPlane = 500.0f;
-	const int MAP_CENTER = MAP_SIZE / 2;
+	const float FOVy = glm::radians(75.0f);
+	const float nearPlane = 0.1f;
+	const float farPlane = 500.0f;
 	const float baseObjectRotation = 90.0f;
 
 	/******* CAMERA PARAMETERS *******/
 	float alpha = M_PI;					// yaw
 	float beta = glm::radians(5.0f);    // pitch
-	//static float rho = 0.0f;			// roll
 	float camDist = 7.0f;				// distance from the target
 	float camHeight = 2.0f;				// height from the target
 	const float lambdaCam = 10.0f;      // damping factor for the camera
 
 	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);				//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
-	glm::vec3 upVector = glm::vec3(0, 1, 0);							//Up Vector
+	const glm::vec3 upVector = glm::vec3(0, 1, 0);						//Up Vector
 
 	/******* CAR PARAMETERS *******/
-	//glm::vec3 startingCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
-	//glm::vec3 updatedCarPos = glm::vec3(-28.0f, 0.0f, 0.0f);
+	float initialRotation = 0.0f;
 	glm::vec3 startingCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 updatedCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
-	const float brakingStrength = 25.0f;
+	const float brakingStrength = 30.0f;
 	const float gravity = 9.81f;								// [m/s^2]
 	const float friction = 0.7f * gravity;
-	float carSteeringSpeed = glm::radians(60.0f);
+	float carSteeringSpeed = glm::radians(75.0f);
 	const float carDamping = 5.0f;
 	float steeringAng = 0.0f;
 	float carVelocity = 0.0f;
+	// Assume initialRotation is the rotation applied to the car model at spawn, represented as a quaternion
+	glm::quat initialRotationQuat;
+
+	/******* MAP PARAMETERS *******/
+	nlohmann::json mapFile;
+	const int MAP_CENTER = MAP_SIZE / 2;
+	int maxLaps = 5;
+	std::vector<std::vector<RoadPosition>> mapLoaded;
+	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
+	std::map<int, glm::vec3> checkpointsPosition;
 
 	/************ DAY PHASES PARAMETERS *****************/
+	int scene = 0; 
 	float turningTime = 0.0f; 
 	float sun_cycle_duration = 120.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
@@ -183,10 +189,11 @@ protected:
 	glm::vec3 startingColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	// Scene 
-	int scene = 0; 
+	/******* PLAYER PARAMETERS *******/
+	int currentCheckpoint = 0;
+	int currentLap = 0;
+	int counter = 0;
 
-	// Here you set the main application parameters
 	void setWindowParameters() {
 		// window size, titile and initial background
 		windowWidth = 800;
@@ -200,6 +207,23 @@ protected:
 	// Window resize callback
 	void onWindowResize(int w, int h) {
 		ar = (float)w / (float)h;
+	}
+
+	//Helper Functions
+	std::unordered_map<std::string, RoadType> stringToEnumRT = {
+		{"STRAIGHT", RoadType::STRAIGHT},
+		{"LEFT", RoadType::LEFT},
+		{"RIGHT", RoadType::RIGHT},
+		{"NONE", RoadType::NONE},
+	};
+
+	RoadType getRTEnumFromString(const std::string& enumString) {
+		auto it = stringToEnumRT.find(enumString);
+		if (it != stringToEnumRT.end()) {
+			return it->second;
+		} else {
+			throw std::invalid_argument("Invalid enum string: " + enumString);
+		}
 	}
 
 	// Here you load and setup all your Vulkan Models and Texutures.
@@ -291,8 +315,22 @@ protected:
 		Mtile.init(this, &VDroad, "models/road/green_tile.mgcg", MGCG);
 
 		//----------------Map Grid Initialization----------------
-		auto mapMatrix = LoadMapFile();
-		LoadMap(mapMatrix);
+		mapFile = LoadMapFile();
+		mapIndexes.resize(DIRECTIONS);
+		mapLoaded.resize(MAP_SIZE, std::vector<RoadPosition>(MAP_SIZE));
+		for (int i = 0; i < mapLoaded.size(); i++) {
+			for (int j = 0; j < mapLoaded[i].size(); j++) {
+				std::pair <int, int> index = std::make_pair(i, j);
+				float x = SCALING_FACTOR * (j - MAP_CENTER);
+				float z = SCALING_FACTOR * (i - MAP_CENTER);
+				int type = RoadType::NONE;
+				mapLoaded[i][j].pos = glm::vec3(x, 0.0f, z);
+				mapLoaded[i][j].type = type;
+				mapLoaded[i][j].rotation = 0.0f;
+				mapIndexes[type].push_back(index);
+			}
+		}
+		LoadMap(mapFile);
 		
 		//Environment models
 		readModels(envModelsPath);
@@ -310,7 +348,6 @@ protected:
 		Tday.init(this, "textures/SkyDay.png"); 
 		Tsunset.init(this, "textures/SkySunset.png");
 
-
 		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
 		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
 		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
@@ -321,14 +358,16 @@ protected:
 
 		std::random_device rd;										//Obtain a random number from hardware
 		std::mt19937 gen(rd());										//Seed the generator
-		std::uniform_int_distribution<> distr(0, Menv.size()-1);	//Define the range
+		std::uniform_int_distribution<> distr(-5, Menv.size() - 1);	//Define the range (negative values are for blank tiles)
 		
 		//Random distribution of environment models on the map
 		envIndexesPerModel.resize(Menv.size());
-		for(int i = 0; i < mapIndexes[NONE].size(); i++) {
+		for(int i = 0; i < mapIndexes[RoadType::NONE].size(); i++) {
 	        int modelNumber = distr(gen);
-			std::pair <int, int> index = mapIndexes[NONE][i];
-			envIndexesPerModel[modelNumber].push_back(index);
+			if (modelNumber >= 0){
+				std::pair <int, int> index = mapIndexes[RoadType::NONE][i];
+				envIndexesPerModel[modelNumber].push_back(index);
+			}
 		}
 	}
 
@@ -367,7 +406,7 @@ protected:
 	nlohmann::json LoadMapFile(){
 		nlohmann::json json;
 
-		std::ifstream infile("config/map1.json");
+		std::ifstream infile("config/map2.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -377,51 +416,95 @@ protected:
 		infile >> json;
 		infile.close();
 
-		return json["map"];
+		return json;
 	}
 
 	// Initialize the mapLoaded and mapIndexes
-	void LoadMap(nlohmann::json& mapMatrix)
+	void LoadMap(nlohmann::json& json)
 	{
-		mapIndexes.resize(DIRECTIONS);
-		mapLoaded.resize(MAP_SIZE, std::vector<RoadPosition>(MAP_SIZE));
-		for (int i = 0; i < mapLoaded.size(); i++) {
-			for (int j = 0; j < MAP_SIZE; j++) {
-				int type = mapMatrix[i][j][0];
-				std::pair <int, int> index = std::make_pair(i, j);
+		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
+		initialRotation = (json["map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : (json["map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
+		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 
-				float x = SCALING_FACTOR * (j - MAP_CENTER);
-				float z = SCALING_FACTOR * (i - MAP_CENTER);
+		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
 
-				mapLoaded[i][j].pos = glm::vec3(x, 0.0f, z);
-				mapLoaded[i][j].type = type;
-				mapLoaded[i][j].rotation = mapMatrix[i][j][1];
+		for (const auto& [jsonKey, jsonValues] : json.items()) {
+			if (jsonKey == "map"){
+				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
+					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
+					RoadType type = getRTEnumFromString(mapValues["type"]);
+					// Add the road piece to the map
+					mapLoaded[index.first][index.second].type = type;
 
-				switch (type) {
-				case STRAIGHT:
-					mapIndexes[STRAIGHT].push_back(index);
-					break;
+					// Add the index to the corresponding type and remove the index from the NONE type
+					mapIndexes[type].push_back(index);
+					mapIndexes[RoadType::NONE].erase(std::remove(mapIndexes[RoadType::NONE].begin(), mapIndexes[RoadType::NONE].end(), index), mapIndexes[RoadType::NONE].end());
 
-				case LEFT:
-					mapIndexes[LEFT].push_back(index);
-					break;
+					//Rotation handling
+					rotationHandler(previousItemIndex, index, type);
+					previousItemIndex = index;
+				}
+			} 
+			else if (jsonKey == "checkpoints"){
+				if (jsonValues.size() != 0) {
+					for (const auto& [cpKey, cpValues] : jsonValues.items()) {
+						std::pair <int, int> checkpointPosIndex = std::make_pair(cpValues["row"], cpValues["col"]);
 
-				case RIGHT:
-					mapIndexes[RIGHT].push_back(index);
-					break;
-
-				default:
-					mapIndexes[NONE].push_back(index);
-					break;
+						checkpointsPosition[checkpointsPosition.size()] = mapLoaded[checkpointPosIndex.first][checkpointPosIndex.second].pos;
+					}
 				}
 			}
+			else if (jsonKey == "start"){
+				std::pair <int, int> startPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
+				startingCarPos = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
+				camPos = glm::vec3(startingCarPos.x, camHeight, startingCarPos.z - camDist);
+				updatedCarPos = startingCarPos;
+				
+			}
+			else if (jsonKey == "end") {
+				std::pair <int, int> endPosIndex;
+				if (jsonValues == nullptr) {
+					endPosIndex = std::make_pair(json["map"].back()["row"], json["map"].back()["col"]);
+				}
+				else {
+					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
+					maxLaps = 1;
+				}
+				checkpointsPosition[checkpointsPosition.size()] = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
+			}
+		}
+	}
+
+	void rotationHandler(std::pair<int, int>& previousItemIndex, std::pair<int, int>& index, int type)
+	{
+		//if the current item is a turn depending on the current rotation and the type of the turn, the rotation is updated
+		int dRow = previousItemIndex.first - index.first;    // x difference
+		int dCol = previousItemIndex.second - index.second;  // y difference
+
+		if (dRow != 0 && dCol != 0) {
+			// Row and Column are both different from the previous road block, which is an error
+			std::cerr << "Invalid map configuration, Row and Column are both different from the previous road block"
+				<< ((abs(dRow) > abs(dCol)) ? " (Col problem)" : " (Row problem)") << std::endl;
+			std::cerr << "The road blocks are not connected or in wrong order in the map file" << std::endl;
+			std::cerr << "Previous road block: " << previousItemIndex.first << " " << previousItemIndex.second << std::endl;
+			std::cerr << "Current road block: " << index.first << " " << index.second << std::endl;
+			std::cerr << "Rotation defaulted to 0.0f" << std::endl;
+		}
+		else {
+			if (dRow > 0) 
+				mapLoaded[index.first][index.second].rotation = (type == LEFT) ? 270.0f : (type == RIGHT) ? 0.0f : 0.0f;
+			else if (dRow < 0) 
+				mapLoaded[index.first][index.second].rotation = (type == LEFT) ? 90.0f : (type == RIGHT) ? 180.0f : 0.0f;
+			else if (dCol > 0) 
+				mapLoaded[index.first][index.second].rotation = (type == LEFT) ? 0.0f : (type == RIGHT) ? 90.0f : 90.0f;
+			else if (dCol < 0) 
+				mapLoaded[index.first][index.second].rotation = (type == LEFT) ? 180.0f : (type == RIGHT) ? 270.0f : 90.0f;
 		}
 	}
 
 	// Here you create your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsInit() {
 		//Descriptor Set initialization
-
 		switch (scene) {
 			case 0 : 
 				DSSkyBox.init(this, &DSLSkyBox, { &Tclouds, &Tsunrise });
@@ -579,7 +662,7 @@ protected:
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
 
-		/************************************* MOTION OF THE CAR *************************************/
+		//MOTION OF THE CAR
 		bool handbrake = false;
 		if(glfwGetKey(window, GLFW_KEY_SPACE)){
 			handbrake = true;
@@ -589,13 +672,14 @@ protected:
 		}
 		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
 
+		// Handle acceleration/braking
 		if (m.z < 0) { // w pressed
 			if (carVelocity >= 0) {
-			carVelocity += carAcceleration * deltaT;
-				carVelocity = glm::min(carVelocity, 70.0f);			
+				carVelocity += carAcceleration * deltaT;
+				carVelocity = glm::min(carVelocity, 70.0f);
 			} else {
 				carVelocity += brakingStrength * deltaT;
-		} 
+			}
 		} 
 		else if (m.z > 0) { // s pressed
 			if (carVelocity > 0) { // car is moving forward, decelerate
@@ -622,41 +706,62 @@ protected:
 		if (carVelocity != 0.0f)
 			steeringAng += -m.x * carSteeringSpeed * deltaT;
 
-		startingCarPos.z -= carVelocity * deltaT * glm::cos(steeringAng);
-		startingCarPos.x -= carVelocity * deltaT * glm::sin(steeringAng);
-		updatedCarPos.z = updatedCarPos.z * std::exp(-carDamping * deltaT) + startingCarPos.z * (1 - std::exp(-carDamping * deltaT));
-		updatedCarPos.x = updatedCarPos.x * std::exp(-carDamping * deltaT) + startingCarPos.x * (1 - std::exp(-carDamping * deltaT));
+		// Combine the initial rotation with the current steering angle
+		glm::quat steeringRotation = glm::angleAxis(steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat totalRotation = initialRotationQuat * steeringRotation;
 
-		updatedCarPos.x = (updatedCarPos.x < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.x > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.x)); //boundaries
-		updatedCarPos.z = (updatedCarPos.z < -SCALING_FACTOR * MAP_CENTER ? (- SCALING_FACTOR * MAP_CENTER)+0.1f : (updatedCarPos.z > SCALING_FACTOR * MAP_CENTER ? (SCALING_FACTOR * MAP_CENTER)-0.1f  : updatedCarPos.z)); //boundaries
+		glm::vec3 forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
+		startingCarPos += forwardDir * carVelocity * deltaT;
+		updatedCarPos = updatedCarPos * std::exp(-carDamping * deltaT) + startingCarPos * (1 - std::exp(-carDamping * deltaT));
 
-		/************************************* Walk model procedure *************************************/
-		//glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(1,0,0,1));
-		//glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), alpha, glm::vec3(0,1,0)) * glm::vec4(0,0,1,1));
-		alpha += ROT_SPEED * r.y * deltaT;	 // yaw, += for mouse movement
-		beta -= ROT_SPEED * r.x * deltaT; // pitch
-		//rho -= ROT_SPEED * r.z * deltaT;  // roll (not used)
+		float minBoundary = -SCALING_FACTOR * MAP_CENTER + 0.1f;
+		float maxBoundary = SCALING_FACTOR * MAP_CENTER - 0.1f;
+
+		// Clamp the x and z positions within the boundaries
+		updatedCarPos.x = glm::clamp(updatedCarPos.x, minBoundary, maxBoundary);
+		updatedCarPos.z = glm::clamp(updatedCarPos.z, minBoundary, maxBoundary);
+
+		//Walk model procedure 
+		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
+		beta -= ROT_SPEED * r.x * deltaT;		// pitch
 		camDist -= MOVE_SPEED * deltaT * m.y;
-		/*camPos -= ux * MOVE_SPEED * m.x * deltaT;
-		camPos -= uz * MOVE_SPEED * m.z * deltaT; */
 
-		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	  // -0.3f to avoid camera flip for every camera distance
-		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	      // Camera distance limits
+		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	// -0.3f to avoid camera flip for every camera distance
+		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	    // Camera distance limits
 
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng, glm::vec3(0, 1, 0)) *
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
 			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 			glm::vec4(0, -camHeight, camDist, 1));
-
-		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT);
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
 
 		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
 		vpMat = pMat * viewMatrix;
-		/************************************************************************************************/
 		
+		//Checkpoint handling
+		if (glm::distance(updatedCarPos, checkpointsPosition[currentCheckpoint]) < 8.0f) {
+			currentCheckpoint++;
+			if (currentCheckpoint == checkpointsPosition.size()) {
+				currentCheckpoint = 0;
+				currentLap++;
+			}
+		}
+
+		//checkpoint Debug
+		counter++;
+		if (counter % 25 == 0){
+			std::cout << "Checkpoint: " << currentCheckpoint <<
+						" Position: " << checkpointsPosition[currentCheckpoint].x << " " 
+									  << checkpointsPosition[currentCheckpoint].y << " " 
+									  << checkpointsPosition[currentCheckpoint].z << std::endl;
+
+			std::cout << "Car Position: " << updatedCarPos.x << " " << updatedCarPos.y << " " << updatedCarPos.z << std::endl;
+			std::cout << "Lap: " << currentLap << " Checkpoint: " << currentCheckpoint << std::endl;
+			counter = 0;
+		}
+	
+		// Scenery change and update
 		turningTime += deltaT;
-
 		turningTime = (turningTime >= 2.0 * sun_cycle_duration) ? 0.0f : turningTime;
-
 
 		if (turningTime > daily_phase_duration && scene == 0) {
 			scene = 1; 
@@ -677,20 +782,15 @@ protected:
 			scene = 0; 
 			RebuildPipeline(); 
 		}
-		
-		
 
 		//Update global uniforms				
 		//Global
-
 		GlobalUniformBufferObject g_ubo{};
 
-		if (scene != 3) {
+		if (scene != 3) 
 			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
-		}
-		else {
+		else
 			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
-		}
 
 		timeScene = turningTime - scene * daily_phase_duration;
 		timeFactor = timeScene / daily_phase_duration;
@@ -726,7 +826,7 @@ protected:
 		//Car
 		UniformBufferObject car_ubo{};
 		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
-					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f) + steeringAng, glm::vec3(0, 1, 0)); 
+					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng, glm::vec3(0, 1, 0)); 
 		car_ubo.mvpMat = vpMat * car_ubo.mMat;
 		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
 		DScar.map(currentImage, &car_ubo, 0);

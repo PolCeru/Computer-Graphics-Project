@@ -1,0 +1,56 @@
+{
+    "map": [
+        {
+            "row": 12,
+            "col": 5,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 12,
+            "col": 6,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 12,
+            "col": 7,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 12,
+            "col": 8,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 12,
+            "col": 9,
+            "type": "LEFT"
+        },
+        {
+            "row": 11,
+            "col": 9,
+            "type": "RIGHT"
+        },
+        {
+            "row": 11,
+            "col": 10,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 11,
+            "col": 11,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 11,
+            "col": 12,
+            "type": "STRAIGHT"
+        }
+    ],
+    "checkpoints": [],
+    "start": {
+        "row": 12,
+        "col": 5,
+        "type": "STRAIGHT"
+    },
+    "end": null
+}
