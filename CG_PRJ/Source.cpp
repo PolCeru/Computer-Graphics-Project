@@ -229,75 +229,106 @@ protected:
 	// Here you load and setup all your Vulkan Models and Texutures.
 	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
 	void localInit() {
-		//----------------Descriptor Set Layout----------------
+		InitDSL();
+		InitVD();
+		InitPipelines();
+		InitModels();
+
+		//Map Grid Initialization
+		mapFile = LoadMapFile();
+		LoadMap(mapFile);
+		
+		//Environment models
+		readModels(envModelsPath);
+		Menv.resize(envFileNames.size());
+		for (const auto& [key, value] : envFileNames) {
+			Menv[key].init(this, &VDenv, value, MGCG);
+		}
+		InitEnvironment();
+
+		//Textures
+		LoadTextures();
+
+		UpdatePools();
+	}
+
+	//Descriptor Set Layout
+	void InitDSL()
+	{
 		//Global
 		DSLGlobal.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1}
-			});
+			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS, sizeof(GlobalUniformBufferObject), 1 }
+		});
 
 		//Skybox
 		DSLSkyBox.init(this, {
-					{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(skyBoxUniformBufferObject), 1},
-					{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},		
-					{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1}
-			});
+			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(skyBoxUniformBufferObject), 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 },
+			{ 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 1 }
+		});
 
 		//Road
 		DSLroad.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
-				{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1},
-				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1},
-				{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1}
-			});
+			{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1 },
+			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 },
+			{ 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1 }
+		});
 
 		//Car
 		DSLcar.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1},
-				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1},
-				{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1}
-			});
+			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 },
+			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 }
+		});
 
 		DSLenvironment.init(this, {
-				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(EnvironmentUniformBufferObject), 1},
-				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1}
-			});
+			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(EnvironmentUniformBufferObject), 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }
+		});
+	}
 
-		//----------------Vertex Descriptor----------------
+	//Vertex Descriptor
+	void InitVD()
+	{
 		//Skybox
 		VDSkyBox.init(this, {
-				{0, sizeof(skyBoxVertex), VK_VERTEX_INPUT_RATE_VERTEX}
-			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION}
-			});
+			{ 0, sizeof(skyBoxVertex), VK_VERTEX_INPUT_RATE_VERTEX }
+		}, {
+			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION }
+		});
 
 		//Road
 		VDroad.init(this, {
-				{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-			}, {
-				{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-				{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-				{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
-			});
+			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+		}, {
+			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
+			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
+			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
+		});
 
 		//Car
 		VDcar.init(this, {
-			{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 		}, {
-			{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-			{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-			{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
+			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
+			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
 		});
 
 		//Environment
 		VDenv.init(this, {
-			{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
+			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 		}, {
-			{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION},
-			{0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV},
-			{0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL},
+			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
+			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
+			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
 		});
+	}
 
-		//----------------Pipelines----------------
+	//Pipelines
+	void InitPipelines()
+	{
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
 		Proad.init(this, &VDroad, "shaders/RoadVert.spv", "shaders/RoadFrag.spv", { &DSLGlobal, &DSLroad });
@@ -305,17 +336,22 @@ protected:
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
 		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLenvironment });
 		Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+	}
 
-		//----------------Models----------------
+	//Models
+	void InitModels()
+	{
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
 		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
 		MstraightRoad.init(this, &VDroad, "models/road/straight.mgcg", MGCG);
 		MturnLeft.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
 		Mtile.init(this, &VDroad, "models/road/green_tile.mgcg", MGCG);
-
-		//----------------Map Grid Initialization----------------
-		mapFile = LoadMapFile();
+	}
+	
+	//Initialize the mapLoaded and mapIndexes with the default values
+	void InitMap()
+	{
 		mapIndexes.resize(DIRECTIONS);
 		mapLoaded.resize(MAP_SIZE, std::vector<RoadPosition>(MAP_SIZE));
 		for (int i = 0; i < mapLoaded.size(); i++) {
@@ -330,47 +366,9 @@ protected:
 				mapIndexes[type].push_back(index);
 			}
 		}
-		LoadMap(mapFile);
-		
-		//Environment models
-		readModels(envModelsPath);
-		Menv.resize(envFileNames.size());
-		for (const auto& [key, value] : envFileNames) {
-			Menv[key].init(this, &VDenv, value, MGCG);
-		}
-
-		//----------------Textures----------------
-		TSkyBox.init(this, "textures/starmap_g4k.jpg");
-		Tenv.init(this, "textures/Textures_City.png");
-		TStars.init(this, "textures/constellation_figures.png");
-		Tclouds.init(this, "textures/Clouds.jpg");
-		Tsunrise.init(this, "textures/SkySunrise.png"); 
-		Tday.init(this, "textures/SkyDay.png"); 
-		Tsunset.init(this, "textures/SkySunset.png");
-
-		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
-		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
-		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
-
-		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
-		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
-		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
-
-		std::random_device rd;										//Obtain a random number from hardware
-		std::mt19937 gen(rd());										//Seed the generator
-		std::uniform_int_distribution<> distr(-5, Menv.size() - 1);	//Define the range (negative values are for blank tiles)
-		
-		//Random distribution of environment models on the map
-		envIndexesPerModel.resize(Menv.size());
-		for(int i = 0; i < mapIndexes[RoadType::NONE].size(); i++) {
-	        int modelNumber = distr(gen);
-			if (modelNumber >= 0){
-				std::pair <int, int> index = mapIndexes[RoadType::NONE][i];
-				envIndexesPerModel[modelNumber].push_back(index);
-			}
-		}
 	}
 
+	//Reads the models from the environment folder
 	void readModels(std::string path){
 		std::vector<std::string> directories;
 		int id = 0;
@@ -402,7 +400,7 @@ protected:
 		}
 	}
 
-	// Loads the JSON
+	//Loads the JSON
 	nlohmann::json LoadMapFile(){
 		nlohmann::json json;
 
@@ -419,9 +417,10 @@ protected:
 		return json;
 	}
 
-	// Initialize the mapLoaded and mapIndexes
+	//Initialize the mapLoaded and mapIndexes
 	void LoadMap(nlohmann::json& json)
 	{
+		InitMap();
 		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
 		initialRotation = (json["map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : (json["map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
@@ -440,7 +439,6 @@ protected:
 					mapIndexes[type].push_back(index);
 					mapIndexes[RoadType::NONE].erase(std::remove(mapIndexes[RoadType::NONE].begin(), mapIndexes[RoadType::NONE].end(), index), mapIndexes[RoadType::NONE].end());
 
-					//Rotation handling
 					rotationHandler(previousItemIndex, index, type);
 					previousItemIndex = index;
 				}
@@ -475,6 +473,7 @@ protected:
 		}
 	}
 
+	//Handles the rotation of the road pieces
 	void rotationHandler(std::pair<int, int>& previousItemIndex, std::pair<int, int>& index, int type)
 	{
 		//if the current item is a turn depending on the current rotation and the type of the turn, the rotation is updated
@@ -500,6 +499,48 @@ protected:
 			else if (dCol < 0) 
 				mapLoaded[index.first][index.second].rotation = (type == LEFT) ? 180.0f : (type == RIGHT) ? 270.0f : 90.0f;
 		}
+	}
+
+	//Environment
+	void InitEnvironment()
+	{
+		std::random_device rd;										//Obtain a random number from hardware
+		std::mt19937 gen(rd());										//Seed the generator
+		std::uniform_int_distribution<> distr(-5, Menv.size() - 1);	//Define the range (negative values are for blank tiles)
+
+		//Random distribution of environment models on the map
+		envIndexesPerModel.resize(Menv.size());
+		for (int i = 0; i < mapIndexes[RoadType::NONE].size(); i++) {
+			int modelNumber = distr(gen);
+			if (modelNumber >= 0) {
+				std::pair <int, int> index = mapIndexes[RoadType::NONE][i];
+				envIndexesPerModel[modelNumber].push_back(index);
+			}
+		}
+	}
+
+	//Textures
+	void LoadTextures()
+	{
+		TSkyBox.init(this, "textures/starmap_g4k.jpg");
+		Tenv.init(this, "textures/Textures_City.png");
+		TStars.init(this, "textures/constellation_figures.png");
+		Tclouds.init(this, "textures/Clouds.jpg");
+		Tsunrise.init(this, "textures/SkySunrise.png");
+		Tday.init(this, "textures/SkyDay.png");
+		Tsunset.init(this, "textures/SkySunset.png");
+	}
+
+	// Update the Descriptor Sets Pools
+	void UpdatePools()
+	{
+		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
+		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
+		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
+
+		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
+		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
+		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
 	}
 
 	// Here you create your pipelines and Descriptor Sets!
