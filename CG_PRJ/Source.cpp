@@ -62,6 +62,12 @@ enum RoadType {
 	NONE = 3
 };
 
+struct Checkpoint{
+	glm::vec3 position;
+	glm::vec3 pointA;
+	glm::vec3 pointB;
+};
+
 //Environment
 struct EnvironmentUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat[MAP_SIZE * MAP_SIZE];
@@ -172,7 +178,7 @@ protected:
 	int maxLaps = 5;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
-	std::map<int, glm::vec3> checkpointsPosition;
+	std::map<int, Checkpoint> checkpoints;
 
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0; 
@@ -426,8 +432,9 @@ protected:
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
-
+		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
+			
 			if (jsonKey == "map"){
 				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
@@ -447,8 +454,10 @@ protected:
 				if (jsonValues.size() != 0) {
 					for (const auto& [cpKey, cpValues] : jsonValues.items()) {
 						std::pair <int, int> checkpointPosIndex = std::make_pair(cpValues["row"], cpValues["col"]);
-
-						checkpointsPosition[checkpointsPosition.size()] = mapLoaded[checkpointPosIndex.first][checkpointPosIndex.second].pos;
+						lastCpIndex = std::stoi(cpKey);
+						glm::vec3 position = mapLoaded[checkpointPosIndex.first][checkpointPosIndex.second].pos;
+						float rotation = mapLoaded[checkpointPosIndex.first][checkpointPosIndex.second].rotation;
+						initCheckpoint(position, rotation, lastCpIndex);
 					}
 				}
 			}
@@ -461,16 +470,35 @@ protected:
 			}
 			else if (jsonKey == "end") {
 				std::pair <int, int> endPosIndex;
+				int cpIndex;
 				if (jsonValues == nullptr) {
 					endPosIndex = std::make_pair(json["map"].back()["row"], json["map"].back()["col"]);
+					lastCpIndex++;
 				}
 				else {
 					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
+					std::cout << lastCpIndex << std::endl;
+					lastCpIndex++;
 					maxLaps = 1;
 				}
-				checkpointsPosition[checkpointsPosition.size()] = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
+				glm::vec3 position = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
+				float rotation = mapLoaded[endPosIndex.first][endPosIndex.second].rotation;
+				initCheckpoint(position, rotation, lastCpIndex);
 			}
 		}
+	}
+
+	void initCheckpoint(glm::vec3& checkpointPos, float rotation, int id)
+	{
+		/*/glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		checkpoints[id].position = checkpointPos;
+		
+		checkpoints[id].pointA = checkpointPos - glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 0.0f, 1.0f));
+		checkpoints[id].pointB = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 0.0f, 1.0f));*/
+
+		checkpoints[id].position = checkpointPos;
+		checkpoints[id].pointA = checkpointPos - glm::vec3(6.0f, 0.0f, 6.0f);
+		checkpoints[id].pointB = checkpointPos + glm::vec3(6.0f, 0.0f, 6.0f);
 	}
 
 	//Handles the rotation of the road pieces
@@ -687,11 +715,24 @@ protected:
 		}
 	}
 
+	// Function to check if the car is crossing the checkpoint
+	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint) {
+		float tolerance = 0.2f;
+		bool withinX (carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance));
+		bool withinZ (carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance));
+
+		/*std::cout << "X: " << carPos.x << " >= " << glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance << " && " << carPos.x << " <= " << glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance << std::endl;
+		std::cout << "Z: " << carPos.z << " >= " << glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance << " && " << carPos.z << " <= " << glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance << std::endl;
+
+		std::cout << withinX << " " << withinZ << std::endl;*/
+
+		return withinX && withinZ;
+	}
+
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
 		// Parameters for the SixAxis
-		static glm::vec3 dampedCamPos = camPos;
 		float deltaT;					// Time between frames [seconds]
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
@@ -703,85 +744,16 @@ protected:
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
 
-		//MOTION OF THE CAR
-		bool handbrake = false;
-		if(glfwGetKey(window, GLFW_KEY_SPACE)){
-			handbrake = true;
-			if (carVelocity > 0){
-				carVelocity -= brakingStrength * 2 * deltaT;
-			}
-		}
-		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
-
-		// Handle acceleration/braking
-		if (m.z < 0) { // w pressed
-			if (carVelocity >= 0) {
-				carVelocity += carAcceleration * deltaT;
-				carVelocity = glm::min(carVelocity, 70.0f);
-			} else {
-				carVelocity += brakingStrength * deltaT;
-			}
-		} 
-		else if (m.z > 0) { // s pressed
-			if (carVelocity > 0) { // car is moving forward, decelerate
-				carVelocity -= brakingStrength * deltaT;
-			}
-			else { // car is moving backwards, accelerate in the opposite direction
-				m.x *= -1;
-				carVelocity -= carAcceleration * deltaT;
-				carVelocity = glm::max(carVelocity, -15.0f);
-			}
-		} else { // no acceleration or deceleration
-			if (carVelocity > 0.0f){ 
-				carVelocity -= friction * deltaT;
-				carVelocity = glm::max(carVelocity, 0.0f);
-			}
-			else if (carVelocity < 0.0f){
-				m.x *= -1;
-				carVelocity += friction * deltaT;
-				carVelocity = glm::min(carVelocity, 0.0f);
-			}
-		}
-
-		// Handle steering
-		if (carVelocity != 0.0f)
-			steeringAng += -m.x * carSteeringSpeed * deltaT;
-
-		// Combine the initial rotation with the current steering angle
-		glm::quat steeringRotation = glm::angleAxis(steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::quat totalRotation = initialRotationQuat * steeringRotation;
-
-		glm::vec3 forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
-		startingCarPos += forwardDir * carVelocity * deltaT;
-		updatedCarPos = updatedCarPos * std::exp(-carDamping * deltaT) + startingCarPos * (1 - std::exp(-carDamping * deltaT));
-
-		float minBoundary = -SCALING_FACTOR * MAP_CENTER + 0.1f;
-		float maxBoundary = SCALING_FACTOR * MAP_CENTER - 0.1f;
-
-		// Clamp the x and z positions within the boundaries
-		updatedCarPos.x = glm::clamp(updatedCarPos.x, minBoundary, maxBoundary);
-		updatedCarPos.z = glm::clamp(updatedCarPos.z, minBoundary, maxBoundary);
+		//Update Car Position and Rotation 
+		CarMotionHandler(deltaT, m);
 
 		//Walk model procedure 
-		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
-		beta -= ROT_SPEED * r.x * deltaT;		// pitch
-		camDist -= MOVE_SPEED * deltaT * m.y;
+		CameraPositionHandler(r, deltaT, m, vpMat, pMat);		
 
-		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	// -0.3f to avoid camera flip for every camera distance
-		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	    // Camera distance limits
-
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
-			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
-			glm::vec4(0, -camHeight, camDist, 1));
-		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
-
-		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
-		vpMat = pMat * viewMatrix;
-		
 		//Checkpoint handling
-		if (glm::distance(updatedCarPos, checkpointsPosition[currentCheckpoint]) < 8.0f) {
+		if (IsBetweenPoints(updatedCarPos, checkpoints[currentCheckpoint])) {
 			currentCheckpoint++;
-			if (currentCheckpoint == checkpointsPosition.size()) {
+			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
 				currentLap++;
 			}
@@ -790,12 +762,13 @@ protected:
 		//checkpoint Debug
 		counter++;
 		if (counter % 25 == 0){
-			std::cout << "Checkpoint: " << currentCheckpoint <<
-						" Position: " << checkpointsPosition[currentCheckpoint].x << " " 
-									  << checkpointsPosition[currentCheckpoint].y << " " 
-									  << checkpointsPosition[currentCheckpoint].z << std::endl;
+			std::cout << "Checkpoint: " << currentCheckpoint << std::endl;
 
-			std::cout << "Car Position: " << updatedCarPos.x << " " << updatedCarPos.y << " " << updatedCarPos.z << std::endl;
+			printVec3("Car Position", updatedCarPos);
+			printVec3("Checkpoint Position", checkpoints[currentCheckpoint].position);
+			printVec3("Point A", checkpoints[currentCheckpoint].pointA);
+			printVec3("Point B", checkpoints[currentCheckpoint].pointB);
+
 			std::cout << "Lap: " << currentLap << " Checkpoint: " << currentCheckpoint << std::endl;
 			counter = 0;
 		}
@@ -1049,6 +1022,90 @@ protected:
 			DSenvironment[i].map(currentImage, &env_ubo, 0);
 		}
 
+	}
+	
+	//Defines the dynamics of the car movement and updates the car position
+	void CarMotionHandler(float deltaT, glm::vec3& m)
+	{
+		bool handbrake = false;
+		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
+			handbrake = true;
+			if (carVelocity > 0) {
+				carVelocity -= brakingStrength * 2 * deltaT;
+			}
+		}
+		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
+
+		// Handle acceleration/braking
+		if (m.z < 0) { // w pressed
+			if (carVelocity >= 0) {
+				carVelocity += carAcceleration * deltaT;
+				carVelocity = glm::min(carVelocity, 70.0f);
+			}
+			else {
+				carVelocity += brakingStrength * deltaT;
+			}
+		}
+		else if (m.z > 0) { // s pressed
+			if (carVelocity > 0) { // car is moving forward, decelerate
+				carVelocity -= brakingStrength * deltaT;
+			}
+			else { // car is moving backwards, accelerate in the opposite direction
+				m.x *= -1;
+				carVelocity -= carAcceleration * deltaT;
+				carVelocity = glm::max(carVelocity, -15.0f);
+			}
+		}
+		else { // no acceleration or deceleration
+			if (carVelocity > 0.0f) {
+				carVelocity -= friction * deltaT;
+				carVelocity = glm::max(carVelocity, 0.0f);
+			}
+			else if (carVelocity < 0.0f) {
+				m.x *= -1;
+				carVelocity += friction * deltaT;
+				carVelocity = glm::min(carVelocity, 0.0f);
+			}
+		}
+
+		// Handle steering
+		if (carVelocity != 0.0f)
+			steeringAng += -m.x * carSteeringSpeed * deltaT;
+
+		// Combine the initial rotation with the current steering angle
+		glm::quat steeringRotation = glm::angleAxis(steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat totalRotation = initialRotationQuat * steeringRotation;
+
+		glm::vec3 forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
+		startingCarPos += forwardDir * carVelocity * deltaT;
+		updatedCarPos = updatedCarPos * std::exp(-carDamping * deltaT) + startingCarPos * (1 - std::exp(-carDamping * deltaT));
+
+		float minBoundary = -SCALING_FACTOR * MAP_CENTER + 0.1f;
+		float maxBoundary = SCALING_FACTOR * MAP_CENTER - 0.1f;
+
+		// Clamp the x and z positions within the boundaries
+		updatedCarPos.x = glm::clamp(updatedCarPos.x, minBoundary, maxBoundary);
+		updatedCarPos.z = glm::clamp(updatedCarPos.z, minBoundary, maxBoundary);
+	}
+
+	//Handles the camera movement and updates the view matrix
+	void CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
+	{
+		static glm::vec3 dampedCamPos = camPos;
+		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
+		beta -= ROT_SPEED * r.x * deltaT;		// pitch
+		camDist -= MOVE_SPEED * deltaT * m.y;
+
+		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	// -0.3f to avoid camera flip for every camera distance
+		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	    // Camera distance limits
+
+		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
+			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
+			glm::vec4(0, -camHeight, camDist, 1));
+		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
+
+		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
+		vpMat = pMat * viewMatrix;
 	}
 };
 
