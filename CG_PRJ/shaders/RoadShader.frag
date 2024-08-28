@@ -4,7 +4,7 @@
 const float SHININESS = 10.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
-const int MAP_SIZE = 23;
+const int MAP_SIZE = 11;
 
 // params for the car lights
 const float HEADLIGHT_INNER_CUTOFF = 1.0;

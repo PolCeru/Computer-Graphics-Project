@@ -128,5 +128,5 @@ class GridApp:
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Selectable Grid")
-    app = GridApp(root, rows=23, cols=23)  # Adjust rows and cols as needed
+    app = GridApp(root, rows=11, cols=11)  # Adjust rows and cols as needed
     root.mainloop()

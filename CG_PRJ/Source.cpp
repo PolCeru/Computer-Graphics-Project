@@ -4,7 +4,7 @@
 #include <string>
 #include <random>
 
-#define MAP_SIZE 23
+#define MAP_SIZE 11
 #define DIRECTIONS 4
 #define SCALING_FACTOR 16.0f
 
@@ -410,7 +410,7 @@ protected:
 	nlohmann::json LoadMapFile(){
 		nlohmann::json json;
 
-		std::ifstream infile("config/map2.json");
+		std::ifstream infile("config/map_ina.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
