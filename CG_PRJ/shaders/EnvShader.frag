@@ -37,8 +37,7 @@ void main() {
 	vec3 normal = normalize(fragNorm);
 	vec3 ambient = AMBIENT_INTENSITY * texColor;  
 
-	/*vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
+	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
 	fragColor = vec4(finalColor, 1.0f);
-
 }

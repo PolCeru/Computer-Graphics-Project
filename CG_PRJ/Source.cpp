@@ -105,6 +105,11 @@ protected:
 	Texture TSkyBox, TStars, Tclouds, Tsunrise, Tday, Tsunset;
 	DescriptorSet DSSkyBox;
 
+	//Cp
+	VertexDescriptor VDcp;
+	Model Mcp;
+	DescriptorSet DScp;
+
 	//Road
 	DescriptorSetLayout DSLroad;
 	VertexDescriptor VDroad;
@@ -183,7 +188,7 @@ protected:
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0; 
 	float turningTime = 0.0f; 
-	float sun_cycle_duration = 120.0f;
+	float sun_cycle_duration = 10.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f; 
@@ -288,6 +293,7 @@ protected:
 			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 }
 		});
 
+		//Environment
 		DSLenvironment.init(this, {
 			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(EnvironmentUniformBufferObject), 1 },
 			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }
@@ -353,6 +359,7 @@ protected:
 		MturnLeft.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
 		Mtile.init(this, &VDroad, "models/road/green_tile.mgcg", MGCG);
+		Mcp.init(this, &VDroad, "models/checkpoint.mgcg", MGCG);
 	}
 	
 	//Initialize the mapLoaded and mapIndexes with the default values
@@ -428,14 +435,13 @@ protected:
 	{
 		InitMap();
 		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
-		initialRotation = (json["map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : (json["map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
+		initialRotation = (json["_map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : (json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
 		int lastCpIndex = 0;
-		for (const auto& [jsonKey, jsonValues] : json.items()) {
-			
-			if (jsonKey == "map"){
+		for (const auto& [jsonKey, jsonValues] : json.items()) {	
+			if (jsonKey == "_map"){
 				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
 					RoadType type = getRTEnumFromString(mapValues["type"]);
@@ -472,7 +478,7 @@ protected:
 				std::pair <int, int> endPosIndex;
 				int cpIndex;
 				if (jsonValues == nullptr) {
-					endPosIndex = std::make_pair(json["map"].back()["row"], json["map"].back()["col"]);
+					endPosIndex = std::make_pair(json["_map"].back()["row"], json["_map"].back()["col"]);
 					lastCpIndex++;
 				}
 				else {
@@ -490,15 +496,11 @@ protected:
 
 	void initCheckpoint(glm::vec3& checkpointPos, float rotation, int id)
 	{
-		/*/glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
 		checkpoints[id].position = checkpointPos;
-		
-		checkpoints[id].pointA = checkpointPos - glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 0.0f, 1.0f));
-		checkpoints[id].pointB = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 0.0f, 1.0f));*/
 
-		checkpoints[id].position = checkpointPos;
-		checkpoints[id].pointA = checkpointPos - glm::vec3(6.0f, 0.0f, 6.0f);
-		checkpoints[id].pointB = checkpointPos + glm::vec3(6.0f, 0.0f, 6.0f);
+		checkpoints[id].pointA = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(-6.0f, 0.0f, 6.0f, 1.0f));
+		checkpoints[id].pointB = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 6.0f, 1.0f));
 	}
 
 	//Handles the rotation of the road pieces
@@ -562,9 +564,9 @@ protected:
 	// Update the Descriptor Sets Pools
 	void UpdatePools()
 	{
-		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
-		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
-		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
+		DPSZs.uniformBlocksInPool = 1 + 1 + 3 * 5 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
+		DPSZs.texturesInPool = 2 + 1 * 5 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
+		DPSZs.setsInPool = 8 + Menv.size();						  // summation of #DS for each DSL
 
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -594,6 +596,7 @@ protected:
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
 		DSturnRight.init(this, &DSLroad, { &Tenv });
 		DStile.init(this, &DSLroad, { &Tenv });
+		DScp.init(this, &DSLroad, { &Tenv });
 		DScar.init(this, &DSLcar, { &Tenv });  
 		DSenvironment.resize(Menv.size());
 		for (int i = 0; i < DSenvironment.size(); i++) {
@@ -627,6 +630,7 @@ protected:
 		for (int i = 0; i < DSenvironment.size(); i++) {
 			DSenvironment[i].cleanup();
 		}
+		DScp.cleanup();
 	}
 
 	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
@@ -653,6 +657,7 @@ protected:
 		for (int i = 0; i < Menv.size(); i++) {
 			Menv[i].cleanup();
 		}
+		Mcp.cleanup();
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
@@ -704,6 +709,11 @@ protected:
 		DStile.bind(commandBuffer, Proad, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mtile.indices.size()), static_cast<uint32_t>(mapIndexes[NONE].size()), 0, 0, 0);
 
+		//Draw Checkpoints
+		Mcp.bind(commandBuffer);
+		DScp.bind(commandBuffer, Proad, 1, currentImage);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcp.indices.size()), static_cast<uint32_t>(checkpoints.size() * 2), 0, 0, 0);
+
 		//Draw Environment
 		//extract number, count uniqueness (map) and i = id, menv.size() = uniqueness
 		Penv.bind(commandBuffer);
@@ -711,8 +721,9 @@ protected:
 			Menv[i].bind(commandBuffer);
 			DSGlobal.bind(commandBuffer, Penv, 0, currentImage);
 			DSenvironment[i].bind(commandBuffer, Penv, 1, currentImage);
-			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv[i].indices.size()), static_cast<uint32_t>(envIndexesPerModel[i].size()), 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv[i].indices.size()), static_cast<uint32_t>(envIndexesPerModel[i].size() * 2), 0, 0, 0);
 		}
+
 	}
 
 	// Function to check if the car is crossing the checkpoint
@@ -720,12 +731,6 @@ protected:
 		float tolerance = 0.2f;
 		bool withinX (carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance));
 		bool withinZ (carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance));
-
-		/*std::cout << "X: " << carPos.x << " >= " << glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance << " && " << carPos.x << " <= " << glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance << std::endl;
-		std::cout << "Z: " << carPos.z << " >= " << glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance << " && " << carPos.z << " <= " << glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance << std::endl;
-
-		std::cout << withinX << " " << withinZ << std::endl;*/
-
 		return withinX && withinZ;
 	}
 
@@ -799,12 +804,12 @@ protected:
 
 		//Update global uniforms				
 		//Global
-		GlobalUniformBufferObject g_ubo{};
+		GlobalUniformBufferObject* g_ubo = new GlobalUniformBufferObject();
 
 		if (scene != 3) 
-			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
+			g_ubo->lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
 		else
-			g_ubo.lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
+			g_ubo->lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
 
 		timeScene = turningTime - scene * daily_phase_duration;
 		timeFactor = timeScene / daily_phase_duration;
@@ -827,60 +832,60 @@ protected:
 				finalColor = glm::vec3(moonColor);
 				break; 
 		}
-		g_ubo.lightColor = glm::vec4(startingColor * (1 - timeFactor) + finalColor * timeFactor, 1.0f);
-		g_ubo.viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
-		DSGlobal.map(currentImage, &g_ubo, 0);
+		g_ubo->lightColor = glm::vec4(startingColor * (1 - timeFactor) + finalColor * timeFactor, 1.0f);
+		g_ubo->viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
+		DSGlobal.map(currentImage, g_ubo, 0);
 
 		//Object Uniform Buffer creation
 		//SkyBox
-		skyBoxUniformBufferObject sb_ubo{};
-		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(viewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
-		DSSkyBox.map(currentImage, &sb_ubo, 0);
+		skyBoxUniformBufferObject* sb_ubo = new skyBoxUniformBufferObject();
+		sb_ubo->mvpMat = pMat * glm::mat4(glm::mat3(viewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
+		DSSkyBox.map(currentImage, sb_ubo, 0);
 
 		//Car
-		UniformBufferObject car_ubo{};
-		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
+		UniformBufferObject* car_ubo = new UniformBufferObject();
+		CarLightsUniformBufferObject* carLights_ubo = new CarLightsUniformBufferObject();
+		car_ubo->mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
 					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng, glm::vec3(0, 1, 0)); 
-		car_ubo.mvpMat = vpMat * car_ubo.mMat;
-		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
-		DScar.map(currentImage, &car_ubo, 0);
+		car_ubo->mvpMat = vpMat * car_ubo->mMat;
+		car_ubo->nMat = glm::inverse(glm::transpose(car_ubo->mMat));
+		DScar.map(currentImage, car_ubo, 0);
 
 		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
-		CarLightsUniformBufferObject carLights_ubo{};
 		for(int i = 0; i < 2; i++){
 			glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
-			carLights_ubo.headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-			carLights_ubo.headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
+			carLights_ubo->headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
+			carLights_ubo->headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.95f, -1.0f, 0.0f)); //pointing forward
 			if (scene == 3) {
-				carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
+				carLights_ubo->headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
 			}
 			else {
-				carLights_ubo.headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+				carLights_ubo->headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
-			carLights_ubo.rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
+			carLights_ubo->rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
+			carLights_ubo->rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -1.0f, 1.0f, 0.0f)); //pointing backwards
 			if (scene == 3) {
-				carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
+				carLights_ubo->rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
 			}
 			else {
-				carLights_ubo.rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+				carLights_ubo->rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 		}
-		DScar.map(currentImage, &carLights_ubo, 2);
+		DScar.map(currentImage, carLights_ubo, 2);
 
 		//Road
-		RoadUniformBufferObject straight_road_ubo{};
-		RoadLightsUniformBufferObject lights_straight_road_ubo{}; 
+		RoadUniformBufferObject* straight_road_ubo = new RoadUniformBufferObject();
+		RoadLightsUniformBufferObject* lights_straight_road_ubo = new RoadLightsUniformBufferObject(); 
 		for (int i = 0; i < mapIndexes[STRAIGHT].size(); i++) {
 			int n = mapIndexes[STRAIGHT][i].first;
 			int m = mapIndexes[STRAIGHT][i].second;
-			straight_road_ubo.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+			straight_road_ubo->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
 										glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
-			straight_road_ubo.mvpMat[i] = vpMat * straight_road_ubo.mMat[i];
-			straight_road_ubo.nMat[i] = glm::inverse(glm::transpose(straight_road_ubo.mMat[i]));
+			straight_road_ubo->mvpMat[i] = vpMat * straight_road_ubo->mMat[i];
+			straight_road_ubo->nMat[i] = glm::inverse(glm::transpose(straight_road_ubo->mMat[i]));
 			
 			bool oneCondition = false;
 			bool m_oneCondition = false;
@@ -905,123 +910,131 @@ protected:
 			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
 
 			// Spot positions //0 middle, 1 previous, 2 next (the one furthest from the model)
-			lights_straight_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-4.9f, 4.9f, -0.2f, 1.0f);
-			lights_straight_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.0f, 1.0f);
+			lights_straight_road_ubo->spotLight_lightPosition[i][0] = transform * glm::vec4(-4.9f, 4.9f, -0.2f, 1.0f);
+			lights_straight_road_ubo->spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.0f, 1.0f);
 			
 			if (!oneCondition){
-				lights_straight_road_ubo.spotLight_lightPosition[i][1] = transform * glm::vec4(4.9f, 4.9f, 7.8f, 1.0f);
-				lights_straight_road_ubo.spotLight_spotDirection[i][1] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
+				lights_straight_road_ubo->spotLight_lightPosition[i][1] = transform * glm::vec4(4.9f, 4.9f, 7.8f, 1.0f);
+				lights_straight_road_ubo->spotLight_spotDirection[i][1] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
 			}
 
 			if (!m_oneCondition){
-				lights_straight_road_ubo.spotLight_lightPosition[i][2] = transform * glm::vec4(4.9f, 4.9f, -7.8f, 1.0f);
-				lights_straight_road_ubo.spotLight_spotDirection[i][2] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
+				lights_straight_road_ubo->spotLight_lightPosition[i][2] = transform * glm::vec4(4.9f, 4.9f, -7.8f, 1.0f);
+				lights_straight_road_ubo->spotLight_spotDirection[i][2] = rotation * glm::vec4(-0.4f, -1.0f, 0.0f, 1.0f);
 			} 
 			
 		}
 		if (scene == 3) {
-			lights_straight_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
+			lights_straight_road_ubo->lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
 		else {
-			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			lights_straight_road_ubo->lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
-		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
-		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
-		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
+		DSstraightRoad.map(currentImage, straight_road_ubo, 1);
+		DSstraightRoad.map(currentImage, carLights_ubo, 2);
+		DSstraightRoad.map(currentImage, lights_straight_road_ubo, 3);
 
-		RoadUniformBufferObject turn_right{};
-		RoadLightsUniformBufferObject lights_turn_right_road_ubo{};
+		RoadUniformBufferObject* turn_right = new RoadUniformBufferObject();
+		RoadLightsUniformBufferObject* lights_turn_right_road_ubo = new RoadLightsUniformBufferObject();
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			int n = mapIndexes[RIGHT][i].first;
 			int m = mapIndexes[RIGHT][i].second;
-			turn_right.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+			turn_right->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
 								 glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
-			turn_right.mvpMat[i] = vpMat * turn_right.mMat[i];
-			turn_right.nMat[i] = glm::inverse(glm::transpose(turn_right.mMat[i]));		
+			turn_right->mvpMat[i] = vpMat * turn_right->mMat[i];
+			turn_right->nMat[i] = glm::inverse(glm::transpose(turn_right->mMat[i]));		
 			
 			glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation), glm::vec3(0, 1, 0));
 			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
 
 			// Spot positions
-			lights_turn_right_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-4.85f, 4.9f, -5.9f, 1.0f);
+			lights_turn_right_road_ubo->spotLight_lightPosition[i][0] = transform * glm::vec4(-4.85f, 4.9f, -5.9f, 1.0f);
 
 			// Spot directions
-			lights_turn_right_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.4f, 1.0f);
+			lights_turn_right_road_ubo->spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, 0.4f, 1.0f);
 		}
 
 		if (scene == 3) {
-			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
+			lights_turn_right_road_ubo->lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
 		else {
-			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			lights_turn_right_road_ubo->lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
-		DSturnRight.map(currentImage, &turn_right, 1);
-		DSturnRight.map(currentImage, &carLights_ubo, 2);
-		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 3);
+		DSturnRight.map(currentImage, turn_right, 1);
+		DSturnRight.map(currentImage, carLights_ubo, 2);
+		DSturnRight.map(currentImage, lights_turn_right_road_ubo, 3);
 
-		RoadUniformBufferObject turn_left{};
-		RoadLightsUniformBufferObject lights_turn_left_road_ubo{}; 
+		RoadUniformBufferObject* turn_left = new RoadUniformBufferObject();
+		RoadLightsUniformBufferObject* lights_turn_left_road_ubo = new RoadLightsUniformBufferObject();
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			int n = mapIndexes[LEFT][i].first;
 			int m = mapIndexes[LEFT][i].second;
-			turn_left.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+			turn_left->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
 								glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation + baseObjectRotation), glm::vec3(0, 1, 0));
-			turn_left.mvpMat[i] = vpMat * turn_left.mMat[i];
-			turn_left.nMat[i] = glm::inverse(glm::transpose(turn_left.mMat[i]));
+			turn_left->mvpMat[i] = vpMat * turn_left->mMat[i];
+			turn_left->nMat[i] = glm::inverse(glm::transpose(turn_left->mMat[i]));
 
 			glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(mapLoaded[n][m].rotation - 90.0f), glm::vec3(0, 1, 0));
 			glm::mat4 transform = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) * rotation;
 
 			// Spot positions
-			lights_turn_left_road_ubo.spotLight_lightPosition[i][0] = transform * glm::vec4(-5.8f, 5.0f, 4.65f, 1.0f);
+			lights_turn_left_road_ubo->spotLight_lightPosition[i][0] = transform * glm::vec4(-5.8f, 5.0f, 4.65f, 1.0f);
 
 			// Spot directions
-			lights_turn_left_road_ubo.spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, -0.4f, 1.0f);
+			lights_turn_left_road_ubo->spotLight_spotDirection[i][0] = rotation * glm::vec4(0.4f, -1.0f, -0.4f, 1.0f);
 		}
 
 		if (scene == 3) {
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
+			lights_turn_left_road_ubo->lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
 		else{
-			lights_turn_left_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			lights_turn_left_road_ubo->lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
+		DSturnLeft.map(currentImage, turn_left, 1);
+		DSturnLeft.map(currentImage, carLights_ubo, 2);
+		DSturnLeft.map(currentImage, lights_turn_left_road_ubo, 3);
 
-		DSturnLeft.map(currentImage, &turn_left, 1);
-		DSturnLeft.map(currentImage, &carLights_ubo, 2);
-		DSturnLeft.map(currentImage, &lights_turn_left_road_ubo, 3);
-
-		RoadUniformBufferObject r_tile{};
-		RoadLightsUniformBufferObject tile_lights{};
+		RoadUniformBufferObject* r_tile = new RoadUniformBufferObject();
+		RoadLightsUniformBufferObject* lights_tile_ubo = new RoadLightsUniformBufferObject();
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
 			int n = mapIndexes[NONE][i].first;
 			int m = mapIndexes[NONE][i].second;
-			r_tile.mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
-			r_tile.mvpMat[i] = vpMat * r_tile.mMat[i];
-			r_tile.nMat[i] = glm::inverse(glm::transpose(r_tile.mMat[i]));
-			tile_lights.spotLight_lightPosition[i][0] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
-			tile_lights.spotLight_lightPosition[i][1] = glm::vec4(glm::vec3(mapLoaded[n][m].pos) + glm::vec3(0.0f, 5.0f, 0.0f), 1.0f);
-			tile_lights.spotLight_spotDirection[i][0] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
-			tile_lights.spotLight_spotDirection[i][1] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);
+			r_tile->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
+			r_tile->mvpMat[i] = vpMat * r_tile->mMat[i];
+			r_tile->nMat[i] = glm::inverse(glm::transpose(r_tile->mMat[i]));
 		}
-		tile_lights.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-		DStile.map(currentImage, &r_tile, 1);
-		DStile.map(currentImage, &carLights_ubo, 2);
-		DStile.map(currentImage, &tile_lights, 3);
+		DStile.map(currentImage, r_tile, 1);
+		DStile.map(currentImage, carLights_ubo, 2);
+		DStile.map(currentImage, lights_tile_ubo, 3);
 
+
+		// Checkpoints
+		RoadUniformBufferObject* cp_ubo = new RoadUniformBufferObject();
+		for (int i = 0, j = 0; i < checkpoints.size() * 2; i+=2, j++) {
+			cp_ubo->mMat[i] = glm::translate(glm::mat4(1.0f), checkpoints[j].pointA);
+			cp_ubo->mvpMat[i] = vpMat * cp_ubo->mMat[i];
+			cp_ubo->nMat[i] = glm::inverse(glm::transpose(cp_ubo->mMat[i]));
+
+			cp_ubo->mMat[i + 1] = glm::translate(glm::mat4(1.0f), checkpoints[j].pointB);
+			cp_ubo->mvpMat[i + 1] = vpMat * cp_ubo->mMat[i + 1];
+			cp_ubo->nMat[i + 1] = glm::inverse(glm::transpose(cp_ubo->mMat[i + 1]));
+		}
+		DScp.map(currentImage, cp_ubo, 1);
+		DScp.map(currentImage, carLights_ubo, 2);
+		
 		//Environment
-		EnvironmentUniformBufferObject env_ubo{};
+		EnvironmentUniformBufferObject* env_ubo = new EnvironmentUniformBufferObject();
 		for (int i = 0; i < DSenvironment.size(); i++) {
 			for (int j = 0; j < envIndexesPerModel[i].size(); j++) {
 				int n = envIndexesPerModel[i][j].first;
 				int m = envIndexesPerModel[i][j].second;
-				env_ubo.mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos)*
-								  glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, +0.2f, 0.0f));;
-				env_ubo.mvpMat[j] = vpMat * env_ubo.mMat[j];
-				env_ubo.nMat[j] = glm::inverse(glm::transpose(env_ubo.mMat[j]));
+				env_ubo->mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos) *
+								  glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, +0.2f, 0.0f));
+				env_ubo->mvpMat[j] = vpMat * env_ubo->mMat[j];
+				env_ubo->nMat[j] = glm::inverse(glm::transpose(env_ubo->mMat[j]));
 			}
-			DSenvironment[i].map(currentImage, &env_ubo, 0);
+			DSenvironment[i].map(currentImage, env_ubo, 0);
 		}
-
 	}
 	
 	//Defines the dynamics of the car movement and updates the car position
