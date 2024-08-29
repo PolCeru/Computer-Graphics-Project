@@ -1168,10 +1168,10 @@ protected:
 			if (i != player_car) {
 				carVelocity[i] += carAcceleration * deltaT;
 				carVelocity[i] = glm::min(carVelocity[i], 70.0f - (10.0f * i));
-				if (carInTurnRight(i)) {
+				if (carInTurnRight(i, deltaT)) {
 					steeringAng[i] -= glm::radians(90.0f); 
 				}
-				else if (carInTurnLeft(i)) {
+				else if (carInTurnLeft(i, deltaT)) {
 					steeringAng[i] += glm::radians(90.0f);
 				}
 				steeringRotation = glm::angleAxis(steeringAng[i], glm::vec3(0.0f, 1.0f, 0.0f));
@@ -1183,10 +1183,10 @@ protected:
 		}
 	}
 
-	bool carInTurnRight(int carIndex) {
+	bool carInTurnRight(int carIndex, float deltaT) {
 		int n; 
 		int m; 
-		float tollerance = 5.0f;
+		float tollerance = 1.75 * carVelocity[carIndex] * deltaT;
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			if (!rightTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[RIGHT][i].first;
@@ -1203,10 +1203,10 @@ protected:
 		return false; 
 	}
 
-	bool carInTurnLeft(int carIndex) {
+	bool carInTurnLeft(int carIndex, float deltaT) {
 		int n;
 		int m;
-		float tollerance = 5.0f;
+		float tollerance = 1.75 * carVelocity[carIndex] * deltaT;
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			if (!leftTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[LEFT][i].first;
