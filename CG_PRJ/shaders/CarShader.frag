@@ -6,6 +6,8 @@ const float SHININESS = 40.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
 
+const int NUM_CARS = 3; 
+
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 
 	vec4 lightColor; 
@@ -14,15 +16,15 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 
 layout(set = 1, binding = 1) uniform sampler2D carTexture;
 
-layout(set = 1, binding = 2) uniform CarLightsUniformBufferObject {
-    vec3 headlightPosition[2];
-    vec3 headlightDirection[2];
-    vec4 headlightColor[2];
+/*layout(set = 1, binding = 2) uniform CarLightsUniformBufferObject {
+    vec3 headlightPosition[NUM_CARS][2];
+    vec3 headlightDirection[NUM_CARS][2];
+    vec4 headlightColor[NUM_CARS][2];
 
-	vec3 rearLightPosition[2]; 
-	vec3 rearLightDirection[2];
+	vec3 rearLightPosition[NUM_CARS][2]; 
+	vec3 rearLightDirection[][2];
 	vec4 rearLightColor[2];
-};
+};*/
 
 layout(location = 0) in vec2 fragTexCoord; // Interpolated texture coordinate
 layout(location = 1) in vec3 fragNormal; 

@@ -1,12 +1,17 @@
 #include "modules/Starter.hpp"
+#include "modules/TextMaker.hpp"
 #include <filesystem>
 #include <map>
 #include <string>
 #include <random>
+#include <iostream>
+#include <vector>
+#include <algorithm>
 
 #define MAP_SIZE 11
 #define DIRECTIONS 4
 #define SCALING_FACTOR 16.0f
+#define NUM_CARS 3
 
 //Global
 struct GlobalUniformBufferObject {
@@ -17,23 +22,23 @@ struct GlobalUniformBufferObject {
 };
 
 //Car
-struct UniformBufferObject {
+struct CarUniformBufferObject {
 	alignas(16) glm::mat4 mvpMat; //World View Projection Matrix
 	alignas(16) glm::mat4 mMat;   //Model/World Matrix
 	alignas(16) glm::mat4 nMat;   //Normal Matrix
 };
 
-struct CarLightsUniformBufferObject {
+/*struct CarLightsUniformBufferObject {
     // Headlights
-    alignas(16) glm::vec3 headlightPosition[2];  //left and right
-    alignas(16) glm::vec3 headlightDirection[2];
-    alignas(16) glm::vec4 headlightColor[2];
+    alignas(16) glm::vec3 headlightPosition[NUM_CARS][2];  //left and right
+    alignas(16) glm::vec3 headlightDirection[NUM_CARS][2];
+    alignas(16) glm::vec4 headlightColor[NUM_CARS][2];
 
     //Rear lights
     alignas(16) glm::vec3 rearLightPosition[2];  //left and right
     alignas(16) glm::vec3 rearLightDirection[2]; 
     alignas(16) glm::vec4 rearLightColor[2];     
-};
+};*/
 
 //Road
 struct RoadUniformBufferObject {
@@ -122,8 +127,8 @@ protected:
 	DescriptorSetLayout DSLcar;
 	VertexDescriptor VDcar;
 	Pipeline Pcar;
-	Model Mcar;
-	DescriptorSet DScar;
+	std::vector<Model> Mcar; 
+	std::vector<DescriptorSet> DScar; 
 
 	// Environment
 	DescriptorSetLayout DSLenvironment;
@@ -136,6 +141,9 @@ protected:
 	const std::string envModelsPath = "models/environment";
 	std::vector<std::vector<std::pair <int, int>>> envIndexesPerModel;
 
+
+	//Text maker
+	TextMaker txt; 
 
 	/******* APP PARAMETERS *******/
 	float ar;
@@ -155,10 +163,9 @@ protected:
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
 	const glm::vec3 upVector = glm::vec3(0, 1, 0);						//Up Vector
 
-	/******* CAR PARAMETERS *******/
+	/******* CARS PARAMETERS *******/
 	float initialRotation = 0.0f;
-	glm::vec3 startingCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 updatedCarPos = glm::vec3(0.0f, 0.0f, 0.0f);
+
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
@@ -167,15 +174,22 @@ protected:
 	const float friction = 0.7f * gravity;
 	float carSteeringSpeed = glm::radians(75.0f);
 	const float carDamping = 5.0f;
-	float steeringAng = 0.0f;
-	float carVelocity = 0.0f;
+	std::vector<glm::vec3> startingCarPos;
+	std::vector<glm::vec3> updatedCarPos;
+	std::vector<float> carVelocity;	
+	std::vector<float> steeringAng; 
+
 	// Assume initialRotation is the rotation applied to the car model at spawn, represented as a quaternion
 	glm::quat initialRotationQuat;
+
+	std::map<int, std::vector<bool>> rightTurnsCrossed; 
+	std::map<int, std::vector<bool>> leftTurnsCrossed;
+
 
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 5;
+	int maxLaps = 2;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -199,6 +213,8 @@ protected:
 	int currentCheckpoint = 0;
 	int currentLap = 0;
 	int counter = 0;
+	const int player_car = 0;
+
 
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -235,6 +251,14 @@ protected:
 	// Here you load and setup all your Vulkan Models and Texutures.
 	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
 	void localInit() {
+		startingCarPos.resize(NUM_CARS);
+		updatedCarPos.resize(NUM_CARS);
+		carVelocity.resize(NUM_CARS);
+		steeringAng.resize(NUM_CARS);
+		for (int i = 0; i < startingCarPos.size(); i++) {
+			carVelocity[i] = 0.0f;
+			steeringAng[i] = 0.0f;
+		}
 		InitDSL();
 		InitVD();
 		InitPipelines();
@@ -243,14 +267,13 @@ protected:
 		//Map Grid Initialization
 		mapFile = LoadMapFile();
 		LoadMap(mapFile);
-		
 		//Environment models
-		readModels(envModelsPath);
+		/*readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VDenv, value, MGCG);
 		}
-		InitEnvironment();
+		InitEnvironment();*/
 
 		//Textures
 		LoadTextures();
@@ -277,21 +300,21 @@ protected:
 		DSLroad.init(this, {
 			{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 },
 			{ 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(RoadUniformBufferObject), 1 },
-			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 },
-			{ 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1 }
+			//{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 },
+			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(RoadLightsUniformBufferObject), 1 }
 		});
 
 		//Car
 		DSLcar.init(this, {
-			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(UniformBufferObject), 1 },
-			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 },
-			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 }
+			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(CarUniformBufferObject), 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }
+			//{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 }
 		});
 
-		DSLenvironment.init(this, {
+		/*DSLenvironment.init(this, {
 			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(EnvironmentUniformBufferObject), 1 },
 			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }
-		});
+		});*/
 	}
 
 	//Vertex Descriptor
@@ -323,13 +346,13 @@ protected:
 		});
 
 		//Environment
-		VDenv.init(this, {
+		/*VDenv.init(this, {
 			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 		}, {
 			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
 			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
 			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
-		});
+		});*/
 	}
 
 	//Pipelines
@@ -340,15 +363,21 @@ protected:
 		Proad.init(this, &VDroad, "shaders/RoadVert.spv", "shaders/RoadFrag.spv", { &DSLGlobal, &DSLroad });
 		Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
 		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
-		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLenvironment });
-		Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
+		/*Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", {&DSLGlobal, &DSLenvironment});
+		Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);*/
 	}
 
 	//Models
 	void InitModels()
 	{
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
+
+		Mcar.resize(NUM_CARS); 
+
+		for (int i = 0; i < Mcar.size(); i++) {
+			Mcar[i].init(this, &VDcar, "models/cars/car_" + std::to_string(i) + ".mgcg", MGCG);
+		}
+
 		MstraightRoad.init(this, &VDroad, "models/road/straight.mgcg", MGCG);
 		MturnLeft.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
 		MturnRight.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
@@ -428,7 +457,9 @@ protected:
 	{
 		InitMap();
 		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
-		initialRotation = (json["map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : (json["map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
+		std::cout << json["map"][1]["col"] << std::endl; 
+		auto col = json["map"][1]["col"]; 
+		initialRotation = ((int)col - previousItemIndex.second > 0) ? 270.0f : ((int)col - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
@@ -463,8 +494,13 @@ protected:
 			}
 			else if (jsonKey == "start"){
 				std::pair <int, int> startPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
-				startingCarPos = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
-				camPos = glm::vec3(startingCarPos.x, camHeight, startingCarPos.z - camDist);
+				startingCarPos[player_car] = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
+				for (int i = 0; i < startingCarPos.size(); i++) {
+					if (i != player_car) {
+						startingCarPos[i] = glm::vec3(startingCarPos[player_car].x, startingCarPos[player_car].y, startingCarPos[player_car].z + (4.0f * i));
+					}
+				}
+				camPos = glm::vec3(startingCarPos[player_car].x, camHeight, startingCarPos[player_car].z - camDist);
 				updatedCarPos = startingCarPos;
 				
 			}
@@ -484,6 +520,16 @@ protected:
 				glm::vec3 position = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
 				float rotation = mapLoaded[endPosIndex.first][endPosIndex.second].rotation;
 				initCheckpoint(position, rotation, lastCpIndex);
+			}
+			for (int i = 0; i < NUM_CARS; i++) {
+				rightTurnsCrossed[i].resize(mapIndexes[RIGHT].size()); 
+				leftTurnsCrossed[i].resize(mapIndexes[LEFT].size()); 
+				for (int j = 0; j < rightTurnsCrossed[i].size(); j++) {
+					rightTurnsCrossed[i][j] = false; 
+				}
+				for (int j = 0; j < leftTurnsCrossed[i].size(); j++) {
+					leftTurnsCrossed[i][j] = false;
+				}
 			}
 		}
 	}
@@ -562,9 +608,9 @@ protected:
 	// Update the Descriptor Sets Pools
 	void UpdatePools()
 	{
-		DPSZs.uniformBlocksInPool = 1 + 1 + 12 + 2 + Menv.size();  // summation of (#ubo * #DS) for each DSL
-		DPSZs.texturesInPool = 2 + 4 + 1 + Menv.size();			   // summation of (#texure * #DS) for each DSL
-		DPSZs.setsInPool = 7 + Menv.size();						  // summation of #DS for each DSL
+		DPSZs.uniformBlocksInPool = 1 + Mcar.size() + 12 + 2 + Menv.size();				// summation of (#ubo * #DS) for each DSL
+		DPSZs.texturesInPool = 2 + 4 + Mcar.size() + Menv.size();						// summation of (#texure * #DS) for each DSL
+		DPSZs.setsInPool = 6 + Mcar.size() + Menv.size();								// summation of #DS for each DSL
 
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -594,17 +640,22 @@ protected:
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
 		DSturnRight.init(this, &DSLroad, { &Tenv });
 		DStile.init(this, &DSLroad, { &Tenv });
-		DScar.init(this, &DSLcar, { &Tenv });  
-		DSenvironment.resize(Menv.size());
+
+		DScar.resize(NUM_CARS); 
+		for (int i = 0; i < DScar.size(); i++) {
+			DScar[i].init(this, &DSLcar, {&Tenv});
+		}
+
+		/*DSenvironment.resize(Menv.size());
 		for (int i = 0; i < DSenvironment.size(); i++) {
 			DSenvironment[i].init(this, &DSLenvironment, { &Tenv });
-		}
+		}*/
 		
 		//Pipeline Creation
 		PSkyBox.create();
 		Proad.create();
 		Pcar.create();
-		Penv.create();
+		//Penv.create();
 	}
 
 	// Here you destroy your pipelines and Descriptor Sets!
@@ -614,7 +665,7 @@ protected:
 		PSkyBox.cleanup();
 		Proad.cleanup();
 		Pcar.cleanup();
-		Penv.cleanup();
+		//Penv.cleanup();
 
 		//Descriptor Set Cleanup
 		DSGlobal.cleanup();
@@ -623,10 +674,12 @@ protected:
 		DSturnLeft.cleanup();
 		DSturnRight.cleanup();
 		DStile.cleanup();
-		DScar.cleanup();
-		for (int i = 0; i < DSenvironment.size(); i++) {
-			DSenvironment[i].cleanup();
+		for (int i = 0; i < DScar.size(); i++) {
+			DScar[i].cleanup();
 		}
+		/*for (int i = 0; i < DSenvironment.size(); i++) {
+			DSenvironment[i].cleanup();
+		}*/
 	}
 
 	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
@@ -649,23 +702,25 @@ protected:
 		MturnLeft.cleanup();
 		MturnRight.cleanup();
 		Mtile.cleanup();
-		Mcar.cleanup();
-		for (int i = 0; i < Menv.size(); i++) {
-			Menv[i].cleanup();
+		for (int i = 0; i < Mcar.size(); i++) {
+			Mcar[i].cleanup();
 		}
+		/*for (int i = 0; i < Menv.size(); i++) {
+			Menv[i].cleanup();
+		}*/
 
 		//Descriptor Set Layouts Cleanup
 		DSLGlobal.cleanup();
 		DSLSkyBox.cleanup();
 		DSLroad.cleanup();
 		DSLcar.cleanup();
-		DSLenvironment.cleanup();
+		//DSLenvironment.cleanup();
 
 		//Pipelines destruction
 		PSkyBox.destroy();
 		Proad.destroy();
 		Pcar.destroy();
-		Penv.destroy();
+		//Penv.destroy();
 	}
 
 	// Here it is the creation of the command buffer:
@@ -680,10 +735,12 @@ protected:
 
 		//Draw Car
 		Pcar.bind(commandBuffer);
-		Mcar.bind(commandBuffer);
 		DSGlobal.bind(commandBuffer, Pcar, 0, currentImage);
-		DScar.bind(commandBuffer, Pcar, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar.indices.size()), 1, 0, 0, 0);
+		for (int i = 0; i < Mcar.size(); i++) {
+			DScar[i].bind(commandBuffer, Pcar, 1, currentImage);
+			Mcar[i].bind(commandBuffer);
+			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcar[i].indices.size()), 1, 0, 0, 0);
+		}
 
 		//Draw Road pieces
 		Proad.bind(commandBuffer);
@@ -706,13 +763,13 @@ protected:
 
 		//Draw Environment
 		//extract number, count uniqueness (map) and i = id, menv.size() = uniqueness
-		Penv.bind(commandBuffer);
+		/*Penv.bind(commandBuffer);
 		for (int i = 0; i < Menv.size(); i++) {
 			Menv[i].bind(commandBuffer);
 			DSGlobal.bind(commandBuffer, Penv, 0, currentImage);
 			DSenvironment[i].bind(commandBuffer, Penv, 1, currentImage);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv[i].indices.size()), static_cast<uint32_t>(envIndexesPerModel[i].size()), 0, 0, 0);
-		}
+		}*/
 	}
 
 	// Function to check if the car is crossing the checkpoint
@@ -732,6 +789,7 @@ protected:
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
+
 		// Parameters for the SixAxis
 		float deltaT;					// Time between frames [seconds]
 		glm::vec3 m = glm::vec3(0.0f);  // Movement
@@ -744,14 +802,15 @@ protected:
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
 
-		//Update Car Position and Rotation 
-		CarMotionHandler(deltaT, m);
+		if (currentLap < maxLaps) {
+			CarsMotionHandler(deltaT, m);
+		}
 
 		//Walk model procedure 
 		CameraPositionHandler(r, deltaT, m, vpMat, pMat);		
 
 		//Checkpoint handling
-		if (IsBetweenPoints(updatedCarPos, checkpoints[currentCheckpoint])) {
+		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint])) {
 			currentCheckpoint++;
 			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
@@ -764,7 +823,7 @@ protected:
 		if (counter % 25 == 0){
 			std::cout << "Checkpoint: " << currentCheckpoint << std::endl;
 
-			printVec3("Car Position", updatedCarPos);
+			printVec3("Car Position", updatedCarPos[player_car]);
 			printVec3("Checkpoint Position", checkpoints[currentCheckpoint].position);
 			printVec3("Point A", checkpoints[currentCheckpoint].pointA);
 			printVec3("Point B", checkpoints[currentCheckpoint].pointB);
@@ -837,39 +896,56 @@ protected:
 		sb_ubo.mvpMat = pMat * glm::mat4(glm::mat3(viewMatrix)); //Remove Translation part of ViewMatrix, take only Rotation part and applies Projection
 		DSSkyBox.map(currentImage, &sb_ubo, 0);
 
-		//Car
-		UniformBufferObject car_ubo{};
-		car_ubo.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos) *
-					   glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng, glm::vec3(0, 1, 0)); 
-		car_ubo.mvpMat = vpMat * car_ubo.mMat;
-		car_ubo.nMat = glm::inverse(glm::transpose(car_ubo.mMat));
-		DScar.map(currentImage, &car_ubo, 0);
+		//Player Car
+		CarUniformBufferObject car_ubo_zero{};
+		car_ubo_zero.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos[0]) *
+			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng[0], glm::vec3(0, 1, 0));
+		car_ubo_zero.mvpMat = vpMat * car_ubo_zero.mMat;
+		car_ubo_zero.nMat = glm::inverse(glm::transpose(car_ubo_zero.mMat));
+		DScar[0].map(currentImage, &car_ubo_zero, 0);
 
-		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
-		CarLightsUniformBufferObject carLights_ubo{};
-		for(int i = 0; i < 2; i++){
-			glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
-			carLights_ubo.headlightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-			carLights_ubo.headlightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
-			if (scene == 3) {
-				carLights_ubo.headlightColor[i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
-			}
-			else {
-				carLights_ubo.headlightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-			}
+		CarUniformBufferObject car_ubo_one{};
+		car_ubo_one.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos[1]) *
+			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng[1], glm::vec3(0, 1, 0));
+		car_ubo_one.mvpMat = vpMat * car_ubo_one.mMat;
+		car_ubo_one.nMat = glm::inverse(glm::transpose(car_ubo_one.mMat));
+		DScar[1].map(currentImage, &car_ubo_one, 0);
 
-			lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
-			carLights_ubo.rearLightPosition[i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-			carLights_ubo.rearLightDirection[i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
-			if (scene == 3) {
-				carLights_ubo.rearLightColor[i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
-			}
-			else {
-				carLights_ubo.rearLightColor[i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-			}
+		CarUniformBufferObject car_ubo_two{};
+		car_ubo_two.mMat = glm::translate(glm::mat4(1.0f), updatedCarPos[2]) *
+			glm::rotate(glm::mat4(1.0f), glm::radians(180.0f + initialRotation) + steeringAng[2], glm::vec3(0, 1, 0));
+		car_ubo_two.mvpMat = vpMat * car_ubo_two.mMat;
+		car_ubo_two.nMat = glm::inverse(glm::transpose(car_ubo_two.mMat));
+		DScar[2].map(currentImage, &car_ubo_two, 0);
 
-		}
-		DScar.map(currentImage, &carLights_ubo, 2);
+
+
+		/*CarLightsUniformBufferObject carLights_ubo{};
+		for (int j = 0; j < NUM_CARS; j++){
+			glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng[j], glm::vec3(0.0f, 1.0f, 0.0f));
+			for (int i = 0; i < 2; i++) {
+				glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
+				carLights_ubo.headlightPosition[j][i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
+				carLights_ubo.headlightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
+				if (scene == 3) {
+					carLights_ubo.headlightColor[j][i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
+				}
+				else {
+					carLights_ubo.headlightColor[j][i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+				}
+
+				lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
+				carLights_ubo.rearLightPosition[j][i] = updatedCarPos + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
+				carLights_ubo.rearLightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
+				if (scene == 3) {
+					carLights_ubo.rearLightColor[j][i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
+				}
+				else {
+					carLights_ubo.rearLightColor[j][i] = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+				}
+			}
+			DScar[j].map(currentImage, &carLights_ubo, 2);
+		}*/
 
 		//Road
 		RoadUniformBufferObject straight_road_ubo{};
@@ -926,8 +1002,8 @@ protected:
 			lights_straight_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		DSstraightRoad.map(currentImage, &straight_road_ubo, 1);
-		DSstraightRoad.map(currentImage, &carLights_ubo, 2);
-		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 3);
+		//DSstraightRoad.map(currentImage, &carLights_ubo, 2);
+		DSstraightRoad.map(currentImage, &lights_straight_road_ubo, 2);
 
 		RoadUniformBufferObject turn_right{};
 		RoadLightsUniformBufferObject lights_turn_right_road_ubo{};
@@ -956,8 +1032,8 @@ protected:
 			lights_turn_right_road_ubo.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
 		DSturnRight.map(currentImage, &turn_right, 1);
-		DSturnRight.map(currentImage, &carLights_ubo, 2);
-		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 3);
+		//DSturnRight.map(currentImage, &carLights_ubo, 2);
+		DSturnRight.map(currentImage, &lights_turn_right_road_ubo, 2);
 
 		RoadUniformBufferObject turn_left{};
 		RoadLightsUniformBufferObject lights_turn_left_road_ubo{}; 
@@ -987,8 +1063,8 @@ protected:
 		}
 
 		DSturnLeft.map(currentImage, &turn_left, 1);
-		DSturnLeft.map(currentImage, &carLights_ubo, 2);
-		DSturnLeft.map(currentImage, &lights_turn_left_road_ubo, 3);
+		//DSturnLeft.map(currentImage, &carLights_ubo, 2);
+		DSturnLeft.map(currentImage, &lights_turn_left_road_ubo, 2);
 
 		RoadUniformBufferObject r_tile{};
 		RoadLightsUniformBufferObject tile_lights{};
@@ -1005,11 +1081,11 @@ protected:
 		}
 		tile_lights.lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 		DStile.map(currentImage, &r_tile, 1);
-		DStile.map(currentImage, &carLights_ubo, 2);
-		DStile.map(currentImage, &tile_lights, 3);
+		//DStile.map(currentImage, &carLights_ubo, 2);
+		DStile.map(currentImage, &tile_lights, 2);
 
 		//Environment
-		EnvironmentUniformBufferObject env_ubo{};
+		/*EnvironmentUniformBufferObject env_ubo{};
 		for (int i = 0; i < DSenvironment.size(); i++) {
 			for (int j = 0; j < envIndexesPerModel[i].size(); j++) {
 				int n = envIndexesPerModel[i][j].first;
@@ -1020,72 +1096,130 @@ protected:
 				env_ubo.nMat[j] = glm::inverse(glm::transpose(env_ubo.mMat[j]));
 			}
 			DSenvironment[i].map(currentImage, &env_ubo, 0);
-		}
+		}*/
 
 	}
 	
 	//Defines the dynamics of the car movement and updates the car position
-	void CarMotionHandler(float deltaT, glm::vec3& m)
+	void CarsMotionHandler(float deltaT, glm::vec3& m)
 	{
 		bool handbrake = false;
 		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
 			handbrake = true;
-			if (carVelocity > 0) {
-				carVelocity -= brakingStrength * 2 * deltaT;
+			if (carVelocity[player_car] > 0) {
+				carVelocity[player_car] -= brakingStrength * 2 * deltaT;
 			}
 		}
 		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
 
 		// Handle acceleration/braking
 		if (m.z < 0) { // w pressed
-			if (carVelocity >= 0) {
-				carVelocity += carAcceleration * deltaT;
-				carVelocity = glm::min(carVelocity, 70.0f);
+			if (carVelocity[player_car] >= 0) {
+				carVelocity[player_car] += carAcceleration * deltaT;
+				carVelocity[player_car] = glm::min(carVelocity[player_car], 70.0f);
 			}
 			else {
-				carVelocity += brakingStrength * deltaT;
+				carVelocity[player_car] += brakingStrength * deltaT;
 			}
 		}
 		else if (m.z > 0) { // s pressed
-			if (carVelocity > 0) { // car is moving forward, decelerate
-				carVelocity -= brakingStrength * deltaT;
+			if (carVelocity[player_car] > 0) { // car is moving forward, decelerate
+				carVelocity[player_car] -= brakingStrength * deltaT;
 			}
 			else { // car is moving backwards, accelerate in the opposite direction
 				m.x *= -1;
-				carVelocity -= carAcceleration * deltaT;
-				carVelocity = glm::max(carVelocity, -15.0f);
+				carVelocity[player_car] -= carAcceleration * deltaT;
+				carVelocity[player_car] = glm::max(carVelocity[player_car], -15.0f);
 			}
 		}
 		else { // no acceleration or deceleration
-			if (carVelocity > 0.0f) {
-				carVelocity -= friction * deltaT;
-				carVelocity = glm::max(carVelocity, 0.0f);
+			if (carVelocity[player_car] > 0.0f) {
+				carVelocity[player_car] -= friction * deltaT;
+				carVelocity[player_car] = glm::max(carVelocity[player_car], 0.0f);
 			}
-			else if (carVelocity < 0.0f) {
+			else if (carVelocity[player_car] < 0.0f) {
 				m.x *= -1;
-				carVelocity += friction * deltaT;
-				carVelocity = glm::min(carVelocity, 0.0f);
+				carVelocity[player_car] += friction * deltaT;
+				carVelocity[player_car] = glm::min(carVelocity[player_car], 0.0f);
 			}
 		}
 
 		// Handle steering
-		if (carVelocity != 0.0f)
-			steeringAng += -m.x * carSteeringSpeed * deltaT;
+		if (carVelocity[player_car] != 0.0f) {
+			steeringAng[player_car] += -m.x * carSteeringSpeed * deltaT;
+		}
 
 		// Combine the initial rotation with the current steering angle
-		glm::quat steeringRotation = glm::angleAxis(steeringAng, glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::quat steeringRotation = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::quat totalRotation = initialRotationQuat * steeringRotation;
 
 		glm::vec3 forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
-		startingCarPos += forwardDir * carVelocity * deltaT;
-		updatedCarPos = updatedCarPos * std::exp(-carDamping * deltaT) + startingCarPos * (1 - std::exp(-carDamping * deltaT));
+		startingCarPos[player_car] += forwardDir * carVelocity[player_car] * deltaT;
+		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
 
 		float minBoundary = -SCALING_FACTOR * MAP_CENTER + 0.1f;
 		float maxBoundary = SCALING_FACTOR * MAP_CENTER - 0.1f;
 
 		// Clamp the x and z positions within the boundaries
-		updatedCarPos.x = glm::clamp(updatedCarPos.x, minBoundary, maxBoundary);
-		updatedCarPos.z = glm::clamp(updatedCarPos.z, minBoundary, maxBoundary);
+		updatedCarPos[player_car].x = glm::clamp(updatedCarPos[player_car].x, minBoundary, maxBoundary);
+		updatedCarPos[player_car].z = glm::clamp(updatedCarPos[player_car].z, minBoundary, maxBoundary);
+
+		for (int i = 0; i < NUM_CARS; i++) {
+			if (i != player_car) {
+				carVelocity[i] += carAcceleration * deltaT;
+				carVelocity[i] = glm::min(carVelocity[i], 70.0f - (10.0f * i));
+				if (carInTurnRight(i)) {
+					steeringAng[i] -= glm::radians(90.0f); 
+				}
+				else if (carInTurnLeft(i)) {
+					steeringAng[i] += glm::radians(90.0f);
+				}
+				steeringRotation = glm::angleAxis(steeringAng[i], glm::vec3(0.0f, 1.0f, 0.0f));
+				totalRotation = initialRotationQuat * steeringRotation;
+				forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);
+				startingCarPos[i] += forwardDir * carVelocity[i] * deltaT;
+				updatedCarPos[i] = updatedCarPos[i] * std::exp(-carDamping * deltaT) + startingCarPos[i] * (1 - std::exp(-carDamping * deltaT));
+			}
+		}
+	}
+
+	bool carInTurnRight(int carIndex) {
+		int n; 
+		int m; 
+		float tollerance = 5.0f;
+		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
+			if (!rightTurnsCrossed[carIndex][i]) {
+				n = mapIndexes[RIGHT][i].first;
+				m = mapIndexes[RIGHT][i].second;
+				bool checkOnX = (updatedCarPos[carIndex].x >= mapLoaded[n][m].pos.x - tollerance) && (updatedCarPos[carIndex].x <= mapLoaded[n][m].pos.x + tollerance);
+				bool checkOnZ = (updatedCarPos[carIndex].z >= mapLoaded[n][m].pos.z - tollerance) && (updatedCarPos[carIndex].z <= mapLoaded[n][m].pos.z + tollerance);
+				if (checkOnX && checkOnZ) {
+					rightTurnsCrossed[carIndex][i] = true; 
+					return true;
+
+				}
+			}
+		}
+		return false; 
+	}
+
+	bool carInTurnLeft(int carIndex) {
+		int n;
+		int m;
+		float tollerance = 5.0f;
+		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
+			if (!leftTurnsCrossed[carIndex][i]) {
+				n = mapIndexes[LEFT][i].first;
+				m = mapIndexes[LEFT][i].second;
+				bool checkOnX = (updatedCarPos[carIndex].x >= mapLoaded[n][m].pos.x - tollerance) && (updatedCarPos[carIndex].x <= mapLoaded[n][m].pos.x + tollerance);
+				bool checkOnZ = (updatedCarPos[carIndex].z >= mapLoaded[n][m].pos.z - tollerance) && (updatedCarPos[carIndex].z <= mapLoaded[n][m].pos.z + tollerance);
+				if (checkOnX && checkOnZ) {
+					leftTurnsCrossed[carIndex][i] = true;
+					return true;
+				}
+			}
+		}
+		return false; 
 	}
 
 	//Handles the camera movement and updates the view matrix
@@ -1099,12 +1233,12 @@ protected:
 		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	// -0.3f to avoid camera flip for every camera distance
 		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	    // Camera distance limits
 
-		camPos = updatedCarPos + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
+		camPos = updatedCarPos[player_car] + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng[player_car] + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
 			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
 			glm::vec4(0, -camHeight, camDist, 1));
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
 
-		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos, upVector);
+		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos[player_car], upVector);
 		vpMat = pMat * viewMatrix;
 	}
 };
@@ -1123,3 +1257,4 @@ int main() {
 
 	return EXIT_SUCCESS;
 }
+
