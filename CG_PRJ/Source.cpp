@@ -184,7 +184,7 @@ protected:
 
 	std::map<int, std::vector<bool>> rightTurnsCrossed; 
 	std::map<int, std::vector<bool>> leftTurnsCrossed;
-
+	std::map<int, int> straightTurnCrossed; 
 
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
@@ -530,6 +530,7 @@ protected:
 				for (int j = 0; j < leftTurnsCrossed[i].size(); j++) {
 					leftTurnsCrossed[i][j] = false;
 				}
+				straightTurnCrossed[i] = 0; 
 			}
 		}
 	}
@@ -1174,6 +1175,13 @@ protected:
 				else if (carInTurnLeft(i, deltaT)) {
 					steeringAng[i] += glm::radians(90.0f);
 				}
+				else {
+					straightTurnCrossed[i] += 1; 
+				}
+				if (carFinishedLap(i)) {
+					cleanCarLapData(i); 
+					
+				}
 				steeringRotation = glm::angleAxis(steeringAng[i], glm::vec3(0.0f, 1.0f, 0.0f));
 				totalRotation = initialRotationQuat * steeringRotation;
 				forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);
@@ -1220,6 +1228,21 @@ protected:
 			}
 		}
 		return false; 
+	}
+
+	bool carFinishedLap(int car) {
+		int numTurnRight = std::count(rightTurnsCrossed[car].begin(), rightTurnsCrossed[car].end(), true);
+		int numTurnLeft = std::count(leftTurnsCrossed[car].begin(), leftTurnsCrossed[car].end(), true);
+		if (numTurnRight = mapIndexes[RIGHT].size() && numTurnLeft == mapIndexes[LEFT].size() && straightTurnCrossed[car] == mapIndexes[RIGHT].size()) {
+			return true;
+		}
+		else return false; 
+	}
+
+	void cleanCarLapData(int car) {
+		std::fill(rightTurnsCrossed[car].begin(), rightTurnsCrossed[car].end(), false);
+		std::fill(leftTurnsCrossed[car].begin(), leftTurnsCrossed[car].end(), false);
+		straightTurnCrossed[car] = 0; 
 	}
 
 	//Handles the camera movement and updates the view matrix
