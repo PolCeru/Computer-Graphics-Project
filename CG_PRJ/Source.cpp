@@ -1194,7 +1194,7 @@ protected:
 	bool carInTurnRight(int carIndex, float deltaT) {
 		int n; 
 		int m; 
-		float tollerance = 1.75 * carVelocity[carIndex] * deltaT;
+		float tollerance = 2.0f * carVelocity[carIndex] * deltaT;
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			if (!rightTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[RIGHT][i].first;
@@ -1214,7 +1214,7 @@ protected:
 	bool carInTurnLeft(int carIndex, float deltaT) {
 		int n;
 		int m;
-		float tollerance = 1.75 * carVelocity[carIndex] * deltaT;
+		float tollerance = 2.0f * carVelocity[carIndex] * deltaT;
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			if (!leftTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[LEFT][i].first;
