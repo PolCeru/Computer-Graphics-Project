@@ -217,6 +217,10 @@ protected:
 
 	// Window resize callback
 	void onWindowResize(int w, int h) {
+		if (w == 0 || h == 0) {
+			// Window is minimized or has invalid dimensions, skip the update.
+			return;
+		}
 		ar = (float)w / (float)h;
 	}
 
