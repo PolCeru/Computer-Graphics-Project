@@ -188,7 +188,7 @@ protected:
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0; 
 	float turningTime = 0.0f; 
-	float sun_cycle_duration = 10.0f;
+	float sun_cycle_duration = 120.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f; 
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f; 
@@ -773,6 +773,7 @@ protected:
 		if (counter % 25 == 0){
 			std::cout << "Checkpoint: " << currentCheckpoint << std::endl;
 
+			std::cout << "Car Velocity: " << carVelocity << std::endl;
 			printVec3("Car Position", updatedCarPos);
 			printVec3("Checkpoint Position", checkpoints[currentCheckpoint].position);
 			printVec3("Point A", checkpoints[currentCheckpoint].pointA);
@@ -1097,12 +1098,43 @@ protected:
 		startingCarPos += forwardDir * carVelocity * deltaT;
 		updatedCarPos = updatedCarPos * std::exp(-carDamping * deltaT) + startingCarPos * (1 - std::exp(-carDamping * deltaT));
 
-		float minBoundary = -SCALING_FACTOR * MAP_CENTER + 0.1f;
-		float maxBoundary = SCALING_FACTOR * MAP_CENTER - 0.1f;
+		float minBoundary = -SCALING_FACTOR * MAP_CENTER;
+		float maxBoundary = SCALING_FACTOR * MAP_CENTER ;
 
-		// Clamp the x and z positions within the boundaries
-		updatedCarPos.x = glm::clamp(updatedCarPos.x, minBoundary, maxBoundary);
-		updatedCarPos.z = glm::clamp(updatedCarPos.z, minBoundary, maxBoundary);
+		CollisionHandler(forwardDir, deltaT, minBoundary, maxBoundary);
+	}
+
+	// Collision detection and response
+	void CollisionHandler(glm::vec3& forwardDir, float deltaT, float minBoundary, float maxBoundary)
+	{
+		
+		glm::vec3 predictedPos = updatedCarPos + forwardDir * carVelocity * deltaT;
+		bool collided = false;
+
+		if (predictedPos.x < minBoundary) {
+			predictedPos.x = minBoundary;
+			collided = true;
+		}
+		else if (predictedPos.x > maxBoundary) {
+			predictedPos.x = maxBoundary;
+			collided = true;
+		}
+
+		if (predictedPos.z < minBoundary) {
+			predictedPos.z = minBoundary;
+			collided = true;
+		}
+		else if (predictedPos.z > maxBoundary) {
+			predictedPos.z = maxBoundary;
+			collided = true;
+		}
+		
+		if (collided) {
+			carVelocity *= -0.5f; 
+		}
+
+		// Apply the position update after collision response
+		updatedCarPos = predictedPos;
 	}
 
 	//Handles the camera movement and updates the view matrix
