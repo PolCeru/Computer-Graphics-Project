@@ -204,8 +204,6 @@ protected:
 	int currentLap = 0;
 	int counter = 0;
 
-	
-
 	void setWindowParameters() {
 		// window size, titile and initial background
 		windowWidth = 800;
@@ -911,12 +909,14 @@ protected:
 			} 
 			
 		}
+
 		if (scene == 3) {
 			lights_straight_road_ubo->lightColorSpot = glm::vec4(1.0f, 1.0f, 0.5f, 1.0f);
 		}
 		else {
 			lights_straight_road_ubo->lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
+
 		DSstraightRoad.map(currentImage, straight_road_ubo, 1);
 		DSstraightRoad.map(currentImage, carLights_ubo, 2);
 		DSstraightRoad.map(currentImage, lights_straight_road_ubo, 3);
@@ -947,6 +947,7 @@ protected:
 		else {
 			lights_turn_right_road_ubo->lightColorSpot = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		}
+
 		DSturnRight.map(currentImage, turn_right, 1);
 		DSturnRight.map(currentImage, carLights_ubo, 2);
 		DSturnRight.map(currentImage, lights_turn_right_road_ubo, 3);

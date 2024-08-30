@@ -7,6 +7,7 @@ class Audio {
 protected:
 	Mix_Chunk* checkpointSound = nullptr;
 	Mix_Chunk* lapSound = nullptr;
+	Mix_Chunk* clappingSound = nullptr;
 
 public:
 	bool InitAudio() {
@@ -45,6 +46,11 @@ public:
 			std::cerr << "Failed to load checkpoint sound" << std::endl;
 			return false;
 		}
+		clappingSound = Mix_LoadWAV("audio/clapping.wav");
+		if (!checkpointSound) {
+			std::cerr << "Failed to load checkpoint sound" << std::endl;
+			return false;
+		}
 		return true;
 	}
 
@@ -55,6 +61,12 @@ public:
 	}
 	
 	void PlayLapSound() {
+		if (lapSound) {
+			Mix_PlayChannel(-1, lapSound, 0);
+		}
+	}
+	
+	void ClappingSound() {
 		if (lapSound) {
 			Mix_PlayChannel(-1, lapSound, 0);
 		}
