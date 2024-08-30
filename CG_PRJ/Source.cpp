@@ -183,6 +183,10 @@ protected:
 	// Assume initialRotation is the rotation applied to the car model at spawn, represented as a quaternion
 	glm::quat initialRotationQuat;
 
+	glm::quat steeringRotation;
+	glm::quat totalRotation;
+	glm::vec3 forwardDir; 
+
 	std::map<int, std::vector<bool>> rightTurnsCrossed;
 	std::map<int, std::vector<bool>> leftTurnsCrossed;
 	std::map<int, int> car_laps; 
@@ -217,6 +221,7 @@ protected:
 	const int player_car = 0;
 	bool raceIsEnded = false; 
 	int winner; 
+	float sensitivityValue = 8.0f; 
 
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -465,7 +470,7 @@ protected:
 	{
 		InitMap();
 		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
-		std::cout << json["map"][1]["col"] << std::endl;
+
 		auto col = json["map"][1]["col"];
 		initialRotation = ((int)col - previousItemIndex.second > 0) ? 270.0f : ((int)col - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
@@ -521,7 +526,7 @@ protected:
 				}
 				else {
 					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
-					std::cout << lastCpIndex << std::endl;
+					// std::cout << lastCpIndex << std::endl;
 					lastCpIndex++;
 					maxLaps = 1;
 				}
@@ -623,9 +628,9 @@ protected:
 		DPSZs.texturesInPool = 2 + 4 + Mcar.size() + Menv.size();						// summation of (#texure * #DS) for each DSL
 		DPSZs.setsInPool = 6 + Mcar.size() + Menv.size();								// summation of #DS for each DSL
 
-		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
+		/*std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
-		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
+		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";*/
 	}
 
 	// Here you create your pipelines and Descriptor Sets!
@@ -842,14 +847,14 @@ protected:
 			//checkpoint Debug
 			counter++;
 			if (counter % 25 == 0) {
-				std::cout << "Checkpoint: " << currentCheckpoint[player_car] << std::endl;
+				/*std::cout << "Checkpoint: " << currentCheckpoint[player_car] << std::endl;
 
 				printVec3("Car Position", updatedCarPos[player_car]);
 				printVec3("Checkpoint Position", checkpoints[currentCheckpoint[player_car]].position);
 				printVec3("Point A", checkpoints[currentCheckpoint[player_car]].pointA);
 				printVec3("Point B", checkpoints[currentCheckpoint[player_car]].pointB);
 
-				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint[player_car] << std::endl;
+				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint[player_car] << std::endl;*/
 				counter = 0;
 			}
 		}
@@ -1177,10 +1182,10 @@ protected:
 		}
 
 		// Combine the initial rotation with the current steering angle
-		glm::quat steeringRotation = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
-		glm::quat totalRotation = initialRotationQuat * steeringRotation;
+		steeringRotation = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
+		totalRotation = initialRotationQuat * steeringRotation;
 
-		glm::vec3 forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
+		forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
 		startingCarPos[player_car] += forwardDir * carVelocity[player_car] * deltaT;
 		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
 
@@ -1194,20 +1199,7 @@ protected:
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
 				if (nextAng[i] == 0.0f) {
-					if (carInTurnRight(i, deltaT)) {
-						nextAng[i] -= glm::radians(90.0f);
-					}
-					else if (carInTurnLeft(i, deltaT)) {
-						nextAng[i] += glm::radians(90.0f);
-					}
-					else {
-						carVelocity[i] += carAcceleration * deltaT;
-						carVelocity[i] = glm::min(carVelocity[i], 70.0f - (25.0f * i));
-						steeringRotation = glm::angleAxis(steeringAng[i], glm::vec3(0.0f, 1.0f, 0.0f));
-						totalRotation = initialRotationQuat * steeringRotation;
-						forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);
-						startingCarPos[i] += forwardDir * carVelocity[i] * deltaT;
-					}
+					manageCarDirection(i, deltaT);
 				}
 				else {
 					steeringAng[i] += nextAng[i];
@@ -1218,49 +1210,55 @@ protected:
 		}
 	}
 
-	bool carInTurnRight(int carIndex, float deltaT) {
-		int n;
-		int m;
-		float tollerance = 8.0f;
-		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
-			if (!rightTurnsCrossed[carIndex][i]) {
-				n = mapIndexes[RIGHT][i].first;
-				m = mapIndexes[RIGHT][i].second;
-				bool checkOnX = (updatedCarPos[carIndex].x >= mapLoaded[n][m].pos.x - tollerance) && (updatedCarPos[carIndex].x <= mapLoaded[n][m].pos.x + tollerance);
-				bool checkOnZ = (updatedCarPos[carIndex].z >= mapLoaded[n][m].pos.z - tollerance) && (updatedCarPos[carIndex].z <= mapLoaded[n][m].pos.z + tollerance);
-				if (checkOnX && checkOnZ) {
-					rightTurnsCrossed[carIndex][i] = true;
-					startingCarPos[carIndex] = mapLoaded[n][m].pos; 
-					return true;
-				}
-			}
-		}
-		return false;
-	}
 
-	bool carInTurnLeft(int carIndex, float deltaT) {
-		int n;
-		int m;
-		float tollerance = 8.0f;
-		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
-			if (!leftTurnsCrossed[carIndex][i]) {
-				n = mapIndexes[LEFT][i].first;
-				m = mapIndexes[LEFT][i].second;
-				bool checkOnX = (updatedCarPos[carIndex].x >= mapLoaded[n][m].pos.x - tollerance) && (updatedCarPos[carIndex].x <= mapLoaded[n][m].pos.x + tollerance);
-				bool checkOnZ = (updatedCarPos[carIndex].z >= mapLoaded[n][m].pos.z - tollerance) && (updatedCarPos[carIndex].z <= mapLoaded[n][m].pos.z + tollerance);
-				if (checkOnX && checkOnZ) {
-					leftTurnsCrossed[carIndex][i] = true;
-					startingCarPos[carIndex] = mapLoaded[n][m].pos;
-					return true;
+	// 1 LEFT, 2 RIGHT
+	void manageCarDirection(int carIndex, float deltaT) {
+		int n; 
+		int m; 
+		for (int j = 1; j < 3; j++) {
+			for (int i = 0; i < mapIndexes[j].size(); i++) {
+				n = mapIndexes[j][i].first;
+				m = mapIndexes[j][i].second;
+				if (j == 1) { // LEFT
+					if (!leftTurnsCrossed[carIndex][i]) {
+						if (checkDistance(n, m, carIndex)) {
+							nextAng[carIndex] = glm::radians(90.0f);
+							leftTurnsCrossed[carIndex][i] = true;
+							startingCarPos[carIndex] = mapLoaded[n][m].pos;
+							return; 
+						}
+					}
+				}
+				if (j == 2) { // RIGHT
+					if (!rightTurnsCrossed[carIndex][i]) {
+						if (checkDistance(n, m, carIndex)) {
+							nextAng[carIndex] = -glm::radians(90.0f);
+							rightTurnsCrossed[carIndex][i] = true;
+							startingCarPos[carIndex] = mapLoaded[n][m].pos;
+							return; 
+						}
+					}
 				}
 			}
 		}
-		return false;
+		carVelocity[carIndex] += carAcceleration * deltaT;
+		carVelocity[carIndex] = glm::min(carVelocity[carIndex], 70.0f - (25.0f * carIndex));
+		steeringRotation = glm::angleAxis(steeringAng[carIndex], glm::vec3(0.0f, 1.0f, 0.0f));
+		totalRotation = initialRotationQuat * steeringRotation;
+		forwardDir = totalRotation * glm::vec3(0.0f, 0.0f, -1.0f);
+		startingCarPos[carIndex] += forwardDir * carVelocity[carIndex] * deltaT;
+		return;
 	}
 
 	void cleanCarLapData(int car) {
 		std::fill(rightTurnsCrossed[car].begin(), rightTurnsCrossed[car].end(), false);
 		std::fill(leftTurnsCrossed[car].begin(), leftTurnsCrossed[car].end(), false);
+	}
+
+	bool checkDistance(int n, int m, int carIndex) {
+		bool checkOnX = abs(updatedCarPos[carIndex].x - mapLoaded[n][m].pos.x) <= 8.0f;
+		bool checkOnZ = abs(updatedCarPos[carIndex].z - mapLoaded[n][m].pos.z) <= 8.0f;
+		return (checkOnX && checkOnZ); 
 	}
 
 	//Handles the camera movement and updates the view matrix
