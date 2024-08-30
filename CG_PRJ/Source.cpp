@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <random>
+#include <audio.hpp>
 
 #define MAP_SIZE 11
 #define DIRECTIONS 4
@@ -145,6 +146,7 @@ protected:
 	const float nearPlane = 0.1f;
 	const float farPlane = 500.0f;
 	const float baseObjectRotation = 90.0f;
+	Audio audio;
 
 	/******* CAMERA PARAMETERS *******/
 	float alpha = M_PI;					// yaw
@@ -202,6 +204,8 @@ protected:
 	int currentLap = 0;
 	int counter = 0;
 
+	
+
 	void setWindowParameters() {
 		// window size, titile and initial background
 		windowWidth = 800;
@@ -241,6 +245,15 @@ protected:
 	// Here you load and setup all your Vulkan Models and Texutures.
 	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
 	void localInit() {
+		//Audio
+		if (!audio.InitAudio()) {
+			std::cerr << "Failed to initialize audio" << std::endl;
+			exit(1);
+		}
+		if (audio.LoadSounds()) {
+			std::cout << "Sounds loaded successfully" << std::endl;
+		}
+
 		InitDSL();
 		InitVD();
 		InitPipelines();
@@ -653,6 +666,9 @@ protected:
 		Proad.destroy();
 		Pcar.destroy();
 		Penv.destroy();
+		
+		//Audio Cleanup
+		audio.AudioCleanup();
 	}
 
 	// Here it is the creation of the command buffer:
@@ -708,14 +724,6 @@ protected:
 
 	}
 
-	// Function to check if the car is crossing the checkpoint
-	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint) {
-		float tolerance = 0.2f;
-		bool withinX (carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance));
-		bool withinZ (carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance));
-		return withinX && withinZ;
-	}
-
 	// Here is where you update the uniforms.
 	// Very likely this will be where you will be writing the logic of your application.
 	void updateUniformBuffer(uint32_t currentImage) {
@@ -743,7 +751,9 @@ protected:
 			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
 				currentLap++;
-			}
+				audio.PlayLapSound();
+			} else
+				audio.PlayCheckpointSound();
 		}
 
 		//checkpoint Debug
@@ -1019,6 +1029,14 @@ protected:
 			DSenvironment[i].map(currentImage, env_ubo, 0);
 		}
 	}
+
+	// Function to check if the car is crossing the checkpoint
+	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint) {
+		float tolerance = 0.2f;
+		bool withinX (carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance));
+		bool withinZ (carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance));
+		return withinX && withinZ;
+	}
 	
 	//Defines the dynamics of the car movement and updates the car position
 	void CarMotionHandler(float deltaT, glm::vec3& m)
@@ -1030,7 +1048,7 @@ protected:
 				carVelocity -= brakingStrength * 2 * deltaT;
 			}
 		}
-		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(60.0f);
+		(handbrake) ? carSteeringSpeed = glm::radians(90.0f) : carSteeringSpeed = glm::radians(75.0f);
 
 		// Handle acceleration/braking
 		if (m.z < 0) { // w pressed
@@ -1137,9 +1155,8 @@ protected:
 };
 
 // This is the main: probably you do not need to touch this!
-int main() {
+int main(int argc, char *argv[]){
 	CG_PRJ app;
-
 	try {
 		app.run();
 	}
