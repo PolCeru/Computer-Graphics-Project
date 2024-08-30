@@ -242,8 +242,7 @@ protected:
 		}
 	}
 
-	// Here you load and setup all your Vulkan Models and Texutures.
-	// Here you also create your Descriptor set layouts and load the shaders for the pipelines
+	// Initialize everything needed for the application
 	void localInit() {
 		//Audio
 		if (!audio.InitAudio()) {
@@ -489,6 +488,7 @@ protected:
 		}
 	}
 
+	//Initialize the checkpoints
 	void initCheckpoint(glm::vec3& checkpointPos, float rotation, int id)
 	{
 		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -568,7 +568,7 @@ protected:
 		std::cout << "Descriptor Sets in the Pool : " << DPSZs.setsInPool << "\n";
 	}
 
-	// Here you create your pipelines and Descriptor Sets!
+	// Initialize pipelines and Descriptor Sets
 	void pipelinesAndDescriptorSetsInit() {
 		//Descriptor Set initialization
 		switch (scene) {
@@ -605,8 +605,7 @@ protected:
 		Penv.create();
 	}
 
-	// Here you destroy your pipelines and Descriptor Sets!
-	// All the object classes defined in Starter.hpp have a method .cleanup() for this purpose
+	// Destroys pipelines and Descriptor Sets
 	void pipelinesAndDescriptorSetsCleanup() {
 		//Pipelines Cleanup
 		PSkyBox.cleanup();
@@ -628,10 +627,7 @@ protected:
 		DScp.cleanup();
 	}
 
-	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
-	// All the object classes defined in Starter.hpp have a method .cleanup() for this purpose
-	// You also have to destroy the pipelines: since they need to be rebuilt, they have two different
-	// methods: .cleanup() recreates them, while .destroy() delete them completely
+	// Destroys Models, Texture and Descr Set Layouts
 	void localCleanup() {
 		//Textures Cleanup
 		TSkyBox.cleanup();
@@ -671,9 +667,8 @@ protected:
 		audio.AudioCleanup();
 	}
 
-	// Here it is the creation of the command buffer:
-	// You send to the GPU all the objects you want to draw,
-	// with their buffers and textures
+	// creates of the command buffer:
+	// sends to the GPU all the objects to draw, with their buffers and textures
 	void populateCommandBuffer(VkCommandBuffer commandBuffer, int currentImage) {
 		//Draw SkyBox
 		PSkyBox.bind(commandBuffer);
@@ -724,8 +719,7 @@ protected:
 
 	}
 
-	// Here is where you update the uniforms.
-	// Very likely this will be where you will be writing the logic of your application.
+	// Updates the uniform buffer
 	void updateUniformBuffer(uint32_t currentImage) {
 		// Parameters for the SixAxis
 		float deltaT;					// Time between frames [seconds]
