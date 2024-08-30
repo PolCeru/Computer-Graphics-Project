@@ -106,13 +106,12 @@ protected:
 	DescriptorSet DSSkyBox;
 
 	//Cp
-	VertexDescriptor VDcp;
 	Model Mcp;
 	DescriptorSet DScp;
 
 	//Road
 	DescriptorSetLayout DSLroad;
-	VertexDescriptor VDroad;
+	VertexDescriptor VD;
 	Pipeline Proad;
 	Model MstraightRoad;
 	Model MturnLeft;
@@ -125,14 +124,12 @@ protected:
 
 	//Car
 	DescriptorSetLayout DSLcar;
-	VertexDescriptor VDcar;
 	Pipeline Pcar;
 	Model Mcar;
 	DescriptorSet DScar;
 
 	// Environment
 	DescriptorSetLayout DSLenvironment;
-	VertexDescriptor VDenv;
 	Pipeline Penv;
 	std::vector<Model> Menv;
 	Texture Tenv;
@@ -257,7 +254,7 @@ protected:
 		readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
-			Menv[key].init(this, &VDenv, value, MGCG);
+			Menv[key].init(this, &VD, value, MGCG);
 		}
 		InitEnvironment();
 
@@ -314,26 +311,7 @@ protected:
 			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(skyBoxVertex, pos), sizeof(glm::vec3), POSITION }
 		});
 
-		//Road
-		VDroad.init(this, {
-			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-		}, {
-			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
-			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
-			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
-		});
-
-		//Car
-		VDcar.init(this, {
-			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
-		}, {
-			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
-			{ 0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv), sizeof(glm::vec2), UV },
-			{ 0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal), sizeof(glm::vec3), NORMAL },
-		});
-
-		//Environment
-		VDenv.init(this, {
+		VD.init(this, {
 			{ 0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX }
 		}, {
 			{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos), sizeof(glm::vec3), POSITION },
@@ -347,10 +325,10 @@ protected:
 	{
 		PSkyBox.init(this, &VDSkyBox, "shaders/SkyBoxVert.spv", "shaders/SkyBoxFrag.spv", { &DSLSkyBox });
 		PSkyBox.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, false);
-		Proad.init(this, &VDroad, "shaders/RoadVert.spv", "shaders/RoadFrag.spv", { &DSLGlobal, &DSLroad });
+		Proad.init(this, &VD, "shaders/RoadVert.spv", "shaders/RoadFrag.spv", { &DSLGlobal, &DSLroad });
 		Proad.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
-		Pcar.init(this, &VDcar, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
-		Penv.init(this, &VDenv, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLenvironment });
+		Pcar.init(this, &VD, "shaders/CarVert.spv", "shaders/CarFrag.spv", { &DSLGlobal, &DSLcar });
+		Penv.init(this, &VD, "shaders/EnvVert.spv", "shaders/EnvFrag.spv", { &DSLGlobal, &DSLenvironment });
 		Penv.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, false);
 	}
 
@@ -358,12 +336,12 @@ protected:
 	void InitModels()
 	{
 		MSkyBox.init(this, &VDSkyBox, "models/SkyBoxCube.obj", OBJ);
-		Mcar.init(this, &VDcar, "models/car.mgcg", MGCG);
-		MstraightRoad.init(this, &VDroad, "models/road/straight.mgcg", MGCG);
-		MturnLeft.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
-		MturnRight.init(this, &VDroad, "models/road/turn.mgcg", MGCG);
-		Mtile.init(this, &VDroad, "models/road/green_tile.mgcg", MGCG);
-		Mcp.init(this, &VDroad, "models/checkpoint.mgcg", MGCG);
+		Mcar.init(this, &VD, "models/car.mgcg", MGCG);
+		MstraightRoad.init(this, &VD, "models/road/straight.mgcg", MGCG);
+		MturnLeft.init(this, &VD, "models/road/turn.mgcg", MGCG);
+		MturnRight.init(this, &VD, "models/road/turn.mgcg", MGCG);
+		Mtile.init(this, &VD, "models/road/green_tile.mgcg", MGCG);
+		Mcp.init(this, &VD, "models/checkpoint.mgcg", MGCG);
 	}
 	
 	//Initialize the mapLoaded and mapIndexes with the default values
