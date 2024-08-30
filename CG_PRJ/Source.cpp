@@ -211,11 +211,13 @@ protected:
 	glm::vec3 startingColor = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
-	/******* PLAYER PARAMETERS *******/
+	/******* RACE PARAMETERS *******/
 	int currentCheckpoint = 0;
 	int counter = 0;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
+	std::map<int, bool> lapMustBeUpdated; 
+	int winner; 
 
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -504,7 +506,7 @@ protected:
 				startingCarPos[player_car] = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
 				for (int i = 0; i < startingCarPos.size(); i++) {
 					if (i != player_car) {
-						startingCarPos[i] = glm::vec3(startingCarPos[player_car].x, startingCarPos[player_car].y, startingCarPos[player_car].z + (4.0f * i));
+						startingCarPos[i] = glm::vec3(startingCarPos[player_car].x, startingCarPos[player_car].y, startingCarPos[player_car].z - (4.0f * i));
 					}
 				}
 				camPos = glm::vec3(startingCarPos[player_car].x, camHeight, startingCarPos[player_car].z - camDist);
@@ -530,7 +532,7 @@ protected:
 			}
 			for (int i = 0; i < NUM_CARS; i++) {
 				rightTurnsCrossed[i].resize(mapIndexes[RIGHT].size());
-				leftTurnsCrossed[i].resize(mapIndexes[LEFT].size());
+				leftTurnsCrossed[i].resize(mapIndexes[LEFT].size()); 
 				for (int j = 0; j < rightTurnsCrossed[i].size(); j++) {
 					rightTurnsCrossed[i][j] = false;
 				}
@@ -538,6 +540,7 @@ protected:
 					leftTurnsCrossed[i][j] = false;
 				}
 				car_laps[i] = 0; 
+				lapMustBeUpdated[i] = false; 
 			}
 		
 		}
@@ -812,13 +815,6 @@ protected:
 		glm::mat4 vpMat;													//View Projection Matrix
 
 
-		for (int i = 0; i < NUM_CARS; i++) {
-			if (car_laps[i] >= maxLaps) {
-				raceIsEnded = true; 
-				break; 
-			}
-		}
-
 		if (!raceIsEnded) {
 			CarsMotionHandler(deltaT, m);
 
@@ -847,6 +843,10 @@ protected:
 				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
 				counter = 0;
 			}
+		}
+
+		else {
+			steeringAng[winner] += 15.0f * carSteeringSpeed * deltaT; 
 		}
 
 		// Scenery change and update
@@ -1184,10 +1184,6 @@ protected:
 
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
-				if (carFinishedLap(i)) {
-					cleanCarLapData(i);
-					car_laps[i] += 1; 
-				}
 				if (nextAng[i] == 0.0f) {
 					if (carInTurnRight(i, deltaT)) {
 						nextAng[i] -= glm::radians(90.0f);
@@ -1205,8 +1201,27 @@ protected:
 					}
 				}
 				else {
-					steeringAng[i] += nextAng[i]; 
+					steeringAng[i] += nextAng[i];
 					nextAng[i] = 0.0f;
+				}
+				if (!lapMustBeUpdated[i]) {
+					if (carFinishedLap(i)) {
+						cleanCarLapData(i);
+						if (car_laps[i] == maxLaps - 1) {
+							raceIsEnded = true; 
+							winner = i; 
+						}
+						else {
+							lapMustBeUpdated[i] = true;
+						}
+						startingCarPos[i] = end_position;
+					}
+				}
+				else {
+					if (abs(updatedCarPos[i].x - end_position.x) > 8.0f || abs(updatedCarPos[i].z - end_position.z) > 8.0f) {
+						car_laps[i] += 1; 
+						lapMustBeUpdated[i] = false;
+					}
 				}
 				updatedCarPos[i] = updatedCarPos[i] * std::exp(-carDamping * deltaT) + startingCarPos[i] * (1 - std::exp(-carDamping * deltaT));
 			}
@@ -1216,7 +1231,7 @@ protected:
 	bool carInTurnRight(int carIndex, float deltaT) {
 		int n;
 		int m;
-		float tollerance = 6.5f;
+		float tollerance = 8.0f;
 		for (int i = 0; i < mapIndexes[RIGHT].size(); i++) {
 			if (!rightTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[RIGHT][i].first;
@@ -1227,7 +1242,6 @@ protected:
 					rightTurnsCrossed[carIndex][i] = true;
 					startingCarPos[carIndex] = mapLoaded[n][m].pos; 
 					return true;
-
 				}
 			}
 		}
@@ -1237,7 +1251,7 @@ protected:
 	bool carInTurnLeft(int carIndex, float deltaT) {
 		int n;
 		int m;
-		float tollerance = 6.5f;
+		float tollerance = 8.0f;
 		for (int i = 0; i < mapIndexes[LEFT].size(); i++) {
 			if (!leftTurnsCrossed[carIndex][i]) {
 				n = mapIndexes[LEFT][i].first;
