@@ -190,7 +190,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 2;
+	int maxLaps = 3;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -212,11 +212,10 @@ protected:
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	/******* RACE PARAMETERS *******/
-	int currentCheckpoint = 0;
+	std::map<int, int> currentCheckpoint; 
 	int counter = 0;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
-	std::map<int, bool> lapMustBeUpdated; 
 	int winner; 
 
 	void setWindowParameters() {
@@ -540,8 +539,8 @@ protected:
 					leftTurnsCrossed[i][j] = false;
 				}
 				car_laps[i] = 0; 
-				lapMustBeUpdated[i] = false; 
-			}
+				currentCheckpoint[i] = 0;
+ 			}
 		
 		}
 	}
@@ -822,25 +821,35 @@ protected:
 			CameraPositionHandler(r, deltaT, m, vpMat, pMat);
 
 			//Checkpoint handling
-			if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint])) {
-				currentCheckpoint++;
-				if (currentCheckpoint == checkpoints.size()) {
-					currentCheckpoint = 0;
-					car_laps[player_car] += 1;
+			for (int i = 0; i < NUM_CARS; i++) {
+				if (IsBetweenPoints(updatedCarPos[i], checkpoints[currentCheckpoint[i]])) {
+					currentCheckpoint[i]++;
+					if (currentCheckpoint[i] == checkpoints.size()) {
+						currentCheckpoint[i] = 0;
+						car_laps[i] += 1;
+						if (car_laps[i] == maxLaps) {
+							raceIsEnded = true;
+							winner = i; 
+							startingCarPos[i] = end_position; 
+						}
+						else if (i != player_car) {
+							cleanCarLapData(i);
+						}
+					}
 				}
 			}
 
 			//checkpoint Debug
 			counter++;
 			if (counter % 25 == 0) {
-				std::cout << "Checkpoint: " << currentCheckpoint << std::endl;
+				std::cout << "Checkpoint: " << currentCheckpoint[player_car] << std::endl;
 
 				printVec3("Car Position", updatedCarPos[player_car]);
-				printVec3("Checkpoint Position", checkpoints[currentCheckpoint].position);
-				printVec3("Point A", checkpoints[currentCheckpoint].pointA);
-				printVec3("Point B", checkpoints[currentCheckpoint].pointB);
+				printVec3("Checkpoint Position", checkpoints[currentCheckpoint[player_car]].position);
+				printVec3("Point A", checkpoints[currentCheckpoint[player_car]].pointA);
+				printVec3("Point B", checkpoints[currentCheckpoint[player_car]].pointB);
 
-				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
+				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint[player_car] << std::endl;
 				counter = 0;
 			}
 		}
@@ -1204,25 +1213,6 @@ protected:
 					steeringAng[i] += nextAng[i];
 					nextAng[i] = 0.0f;
 				}
-				if (!lapMustBeUpdated[i]) {
-					if (carFinishedLap(i)) {
-						cleanCarLapData(i);
-						if (car_laps[i] == maxLaps - 1) {
-							raceIsEnded = true; 
-							winner = i; 
-						}
-						else {
-							lapMustBeUpdated[i] = true;
-						}
-						startingCarPos[i] = end_position;
-					}
-				}
-				else {
-					if (abs(updatedCarPos[i].x - end_position.x) > 8.0f || abs(updatedCarPos[i].z - end_position.z) > 8.0f) {
-						car_laps[i] += 1; 
-						lapMustBeUpdated[i] = false;
-					}
-				}
 				updatedCarPos[i] = updatedCarPos[i] * std::exp(-carDamping * deltaT) + startingCarPos[i] * (1 - std::exp(-carDamping * deltaT));
 			}
 		}
@@ -1266,16 +1256,6 @@ protected:
 			}
 		}
 		return false;
-	}
-
-	bool carFinishedLap(int car) {
-		float tollerance = 6.5f; 
-		bool checkOnX = (updatedCarPos[car].x >= end_position.x - tollerance) && (updatedCarPos[car].x <= end_position.x + tollerance);
-		bool checkOnZ = (updatedCarPos[car].z >= end_position.z - tollerance) && (updatedCarPos[car].z <= end_position.z + tollerance);
-		if (checkOnX && checkOnZ) {
-			return true; 
-		}
-		return false; 
 	}
 
 	void cleanCarLapData(int car) {
