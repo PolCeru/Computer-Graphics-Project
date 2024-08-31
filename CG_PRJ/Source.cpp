@@ -504,7 +504,7 @@ protected:
 		int dCol = previousItemIndex.second - index.second;  // y difference
 
 		if (dRow != 0 && dCol != 0) {
-			// Row and Column are both different from the previous road block, which is an error
+			// Row and Column are both different from the previous road block, which is an error!
 			std::cerr << "Invalid map configuration, Row and Column are both different from the previous road block"
 				<< ((abs(dRow) > abs(dCol)) ? " (Col problem)" : " (Row problem)") << std::endl;
 			std::cerr << "The road blocks are not connected or in wrong order in the map file" << std::endl;
