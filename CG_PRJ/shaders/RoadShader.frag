@@ -5,6 +5,7 @@ const float SHININESS = 10.0;
 const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
 const int MAP_SIZE = 11;
+const int NUM_CARS = 3;
 
 // params for the car lights
 const float HEADLIGHT_INNER_CUTOFF = 1.0;
@@ -25,13 +26,13 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 layout(set = 1, binding = 0) uniform sampler2D floorTexture;
 
 layout(set = 1, binding = 2) uniform CarLightsUniformBufferObject {
-    vec3 headlightPosition[2];
-    vec3 headlightDirection[2];
-    vec4 headlightColor[2];
+    vec3 headlightPosition[NUM_CARS][2];
+    vec3 headlightDirection[NUM_CARS][2];
+    vec4 headlightColor[NUM_CARS][2];
 
-	vec3 rearLightPosition[2]; 
-	vec3 rearLightDirection[2];
-	vec4 rearLightColor[2];
+	vec3 rearLightPosition[NUM_CARS][2]; 
+	vec3 rearLightDirection[NUM_CARS][2];
+	vec4 rearLightColor[NUM_CARS][2];
 };
 
 layout(set = 1, binding = 3) uniform RoadLightsUniformBufferObject{
@@ -87,13 +88,13 @@ void main() {
 	//Calculate the final color
 	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
-    for (int i = 0; i < 2; i++) {
-        finalColor += CalculateSpotlight(headlightPosition[i], headlightDirection[i], headlightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
-    }
-
-	 for (int i = 0; i < 2; i++) {
-       finalColor += CalculateSpotlight(rearLightPosition[i], rearLightDirection[i], rearLightColor[i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
-    }
+	for (int j = 0; j < NUM_CARS; j++) {
+		for (int i = 0; i < 2; i++) 
+			finalColor += CalculateSpotlight(headlightPosition[j][i], headlightDirection[j][i], headlightColor[j][i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);
+		
+		for (int i = 0; i < 2; i++) 
+			finalColor += CalculateSpotlight(rearLightPosition[j][i], rearLightDirection[j][i], rearLightColor[j][i], abs(normal), HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF);	
+	}
 
 	for(int i = 0; i < 3; i++) {
 		i_sl_lightPos = rlubo.spotLight_lightPosition[current][i]; 
