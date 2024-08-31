@@ -189,7 +189,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 1;
+	int maxLaps = 2;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -1270,7 +1270,20 @@ protected:
 				glm::vec4(0, -camHeight, camDist, 1));
 		}
 		else {
-			camPos = glm::vec3(end_position.x, 50.0f, end_position.z);
+			float offset = 35.0f;
+
+			if (end_position.x > 0 && end_position.z > 0) {
+				camPos = glm::vec3(end_position.x + offset, offset, end_position.z + offset);
+			}
+			if (end_position.x > 0 && end_position.z < 0) {
+				camPos = glm::vec3(end_position.x + offset, offset, end_position.z - offset);
+			}
+			if (end_position.x < 0 && end_position.z > 0) {
+				camPos = glm::vec3(end_position.x - offset, offset, end_position.z + offset);
+			}
+			if (end_position.x < 0 && end_position.z < 0) {
+				camPos = glm::vec3(end_position.x - offset, offset, end_position.z - offset);
+			}
 		}
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
 
