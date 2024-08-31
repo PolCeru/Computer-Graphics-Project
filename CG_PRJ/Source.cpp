@@ -189,7 +189,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 3;
+	int maxLaps = 1;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -1028,7 +1028,15 @@ protected:
 			r_tile->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
 			r_tile->mvpMat[i] = vpMat * r_tile->mMat[i];
 			r_tile->nMat[i] = glm::inverse(glm::transpose(r_tile->mMat[i]));
+			lights_tile_ubo->spotLight_lightPosition[i][0] = glm::vec4(0.0f);  
+			lights_tile_ubo->spotLight_spotDirection[i][0] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_lightPosition[i][1] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_spotDirection[i][1] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_lightPosition[i][2] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_spotDirection[i][2] = glm::vec4(0.0f);
 		}
+		lights_tile_ubo->lightColorSpot = glm::vec4(0.0f);
+		lights_tile_ubo->lightColorSpot = glm::vec4(0.0f);
 		DStile.map(currentImage, r_tile, 1);
 		DStile.map(currentImage, carLights_ubo, 2);
 		DStile.map(currentImage, lights_tile_ubo, 3);
@@ -1092,7 +1100,7 @@ protected:
 
 	// Function to check if the car is crossing the checkpoint
 	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint) {
-		float tolerance = 0.5f;
+		float tolerance = 10.0f;
 		bool withinX(carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - tolerance) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + tolerance));
 		bool withinZ(carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - tolerance) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + tolerance));
 		return withinX && withinZ;
@@ -1247,6 +1255,7 @@ protected:
 	//Handles the camera movement and updates the view matrix
 	void CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
 	{
+
 		static glm::vec3 dampedCamPos = camPos;
 		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
 		beta -= ROT_SPEED * r.x * deltaT;		// pitch
@@ -1255,12 +1264,22 @@ protected:
 		beta = (beta < 0.0f ? 0.0f : (beta > M_PI_2 - 0.4f ? M_PI_2 - 0.4f : beta));	// -0.3f to avoid camera flip for every camera distance
 		camDist = (camDist < 5.0f ? 5.0f : (camDist > 15.0f ? 15.0f : camDist));	    // Camera distance limits
 
-		camPos = updatedCarPos[player_car] + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng[player_car] + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
-			glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
-			glm::vec4(0, -camHeight, camDist, 1));
+		if (!raceIsEnded) {
+			camPos = updatedCarPos[player_car] + glm::vec3(-glm::rotate(glm::mat4(1), alpha + steeringAng[player_car] + glm::radians(initialRotation), glm::vec3(0, 1, 0)) * //update camera position based on car position
+				glm::rotate(glm::mat4(1), beta, glm::vec3(1, 0, 0)) *
+				glm::vec4(0, -camHeight, camDist, 1));
+		}
+		else {
+			camPos = glm::vec3(end_position.x, 50.0f, end_position.z);
+		}
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
 
-		viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos[player_car], upVector);
+		if (!raceIsEnded) {
+			viewMatrix = glm::lookAt(dampedCamPos, updatedCarPos[player_car], upVector);
+		}
+		else {
+			viewMatrix = glm::lookAt(dampedCamPos, -end_position, upVector);
+		}
 		vpMat = pMat * viewMatrix;
 	}
 };
