@@ -1075,6 +1075,7 @@ protected:
 						raceIsEnded = true;
 						winner = i;
 						startingCarPos[i] = end_position;
+						audio.PlayClappingSound();
 					}
 				}
 				else if (i == player_car){

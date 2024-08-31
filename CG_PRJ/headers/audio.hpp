@@ -66,9 +66,9 @@ public:
 		}
 	}
 	
-	void ClappingSound() {
-		if (lapSound) {
-			Mix_PlayChannel(-1, lapSound, 0);
+	void PlayClappingSound() {
+		if (clappingSound) {
+			Mix_PlayChannel(-1, clappingSound, 0);
 		}
 	}
 
@@ -76,6 +76,7 @@ public:
 		Mix_FreeChunk(checkpointSound);
 		checkpointSound = nullptr;
 		lapSound = nullptr;
+		clappingSound = nullptr;
 		CleanupAudio();
 	}
 
