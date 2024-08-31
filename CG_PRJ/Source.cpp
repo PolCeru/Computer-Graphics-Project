@@ -212,7 +212,6 @@ protected:
 
 	/******* RACE PARAMETERS *******/
 	std::map<int, int> currentCheckpoint; 
-	int counter = 0;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
 	int winner; 
@@ -878,7 +877,7 @@ protected:
 			for (int i = 0; i < 2; i++) {
 				glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
 				carLights_ubo->headlightPosition[j][i] = updatedCarPos[j] + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-				carLights_ubo->headlightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
+				carLights_ubo->headlightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.2f, -1.0f, 0.0f)); //pointing forward
 				if (scene == 3) {
 					carLights_ubo->headlightColor[j][i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
 				}
@@ -888,7 +887,7 @@ protected:
 
 				lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
 				carLights_ubo->rearLightPosition[j][i] = updatedCarPos[j] + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-				carLights_ubo->rearLightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
+				carLights_ubo->rearLightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.2f, 1.0f, 0.0f)); //pointing backwards
 				if (scene == 3) {
 					carLights_ubo->rearLightColor[j][i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
 				}
@@ -1078,15 +1077,11 @@ protected:
 						startingCarPos[i] = end_position;
 					}
 				}
-				else if (i == player_car) audio.PlayCheckpointSound();
+				else if (i == player_car){
+					audio.PlayCheckpointSound();
+					std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint[player_car] << std::endl;
+				}
 			}
-		}
-
-		//checkpoint Debug
-		counter++;
-		if (counter % 25 == 0) {
-			std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint[player_car] << std::endl;
-			counter = 0;
 		}
 	}
 

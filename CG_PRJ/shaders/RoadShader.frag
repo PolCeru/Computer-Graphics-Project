@@ -67,10 +67,11 @@ vec3 CalculateSpotlight(vec3 lightPos, vec3 lightDir, vec4 lightColor, vec3 norm
 	vec3 distance = normalize(-lightDir);
 	float theta = dot(lightVec, distance);
 	float intensity = clamp((theta - outerCutoff) / (innerCutoff - outerCutoff), 0.0, 1.0);
+	float attenuation = pow(1.5 / length(fragPos - lightPos), 1.2);
 
 	vec3 diffuse = lightColor.rgb * lightColor.a * max(dot(lightVec, normal), 0.0);
 
-	return intensity * diffuse;
+	return attenuation * intensity * diffuse;
 }
 
 void main() {
@@ -106,4 +107,4 @@ void main() {
 	}
 	
 	fragColor = vec4(finalColor, 1.0f);
-	}
+}
