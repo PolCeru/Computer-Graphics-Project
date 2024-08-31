@@ -1270,19 +1270,19 @@ protected:
 				glm::vec4(0, -camHeight, camDist, 1));
 		}
 		else {
-			float offset = 35.0f;
+			float offset = 40.0f;
 
 			if (end_position.x > 0 && end_position.z > 0) {
-				camPos = glm::vec3(end_position.x + offset, offset, end_position.z + offset);
+				camPos = glm::vec3(end_position.x + offset, offset - 15.0f, end_position.z + offset);
 			}
 			if (end_position.x > 0 && end_position.z < 0) {
-				camPos = glm::vec3(end_position.x + offset, offset, end_position.z - offset);
+				camPos = glm::vec3(end_position.x + offset, offset - 15.0f, end_position.z - offset);
 			}
 			if (end_position.x < 0 && end_position.z > 0) {
-				camPos = glm::vec3(end_position.x - offset, offset, end_position.z + offset);
+				camPos = glm::vec3(end_position.x - offset, offset - 15.0f, end_position.z + offset);
 			}
 			if (end_position.x < 0 && end_position.z < 0) {
-				camPos = glm::vec3(end_position.x - offset, offset, end_position.z - offset);
+				camPos = glm::vec3(end_position.x - offset, offset - 15.0f, end_position.z - offset);
 			}
 		}
 		dampedCamPos = camPos * (1 - exp(-lambdaCam * deltaT)) + dampedCamPos * exp(-lambdaCam * deltaT); //apply camera damping
