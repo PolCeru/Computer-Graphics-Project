@@ -68,8 +68,6 @@ struct Checkpoint {
 	glm::vec3 position;
 	glm::vec3 pointA;
 	glm::vec3 pointB;
-	glm::vec3 rotation;
-	int type; 
 };
 
 //Environment
@@ -198,6 +196,7 @@ protected:
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
 	glm::vec3 end_position = glm::vec3(0.0f, 0.0f, 0.0f); 
+	float checkpointOffset = 6.0f; 
 
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0;
@@ -542,8 +541,8 @@ protected:
 	{
 		glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
 		checkpoints[id].position = checkpointPos;
-		checkpoints[id].pointA = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(-6.0f, 0.0f, 6.0f, 1.0f));
-		checkpoints[id].pointB = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(6.0f, 0.0f, 6.0f, 1.0f));
+		checkpoints[id].pointA = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(-checkpointOffset, 0.0f, checkpointOffset, 1.0f));
+		checkpoints[id].pointB = checkpointPos + glm::vec3(rotationMatrix * glm::vec4(checkpointOffset, 0.0f, checkpointOffset, 1.0f));
 	}
 
 	//Handles the rotation of the road pieces
@@ -1116,23 +1115,22 @@ protected:
 	// Function to check if the car is crossing the checkpoint
 	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint, float deltaT) {
 		
-
-
 		bool isInRoad = false;
 		bool checkpointIsCrossed = false;
-		float potVelocity = carAcceleration * deltaT;
+		float epsilon = 0.0001f; 
+		float outOfRoadTollerance = 1.5f; 
+		int framesOfPrediction = -1; // during the last updated_car_position (just updated) the car passes the checkpoint
+		float potVelocity = abs(carVelocity[player_car] + carAcceleration * deltaT * framesOfPrediction);
 
-		if (abs(checkpoint.pointA.z - checkpoint.pointB.z) < 0.0001f) { // MOVING ALONG Z
-			checkpointIsCrossed = abs(carPos.z - checkpoint.position.z) - 6.0f <= 2 * potVelocity * deltaT;
-			isInRoad = carPos.x <= glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + 1.5f && carPos.x >= glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - 1.5f;
+
+		if (abs(checkpoint.pointA.z - checkpoint.pointB.z) < epsilon) { // MOVING ALONG Z
+			checkpointIsCrossed = abs(carPos.z - checkpoint.position.z) - checkpointOffset <= potVelocity * deltaT;
+			isInRoad = carPos.x <= glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + outOfRoadTollerance && carPos.x >= glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - outOfRoadTollerance;
 		}
 
-		else if (abs(checkpoint.pointA.x - checkpoint.pointB.x) < 0.0001f) { // MOVING ALONG X
-			if (currentCheckpoint == 6) {
-				std::cout << "ciao" << std::endl; 
-			}
-			checkpointIsCrossed = abs(carPos.x - checkpoint.position.x) - 6.0f <= 2 * potVelocity * deltaT;
-			isInRoad = carPos.z <= glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + 1.5f && carPos.z >= glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - 1.5f;
+		else if (abs(checkpoint.pointA.x - checkpoint.pointB.x) < epsilon) { // MOVING ALONG X
+			checkpointIsCrossed = abs(carPos.x - checkpoint.position.x) - checkpointOffset <= potVelocity * deltaT;
+			isInRoad = carPos.z <= glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + outOfRoadTollerance && carPos.z >= glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - outOfRoadTollerance;
 		}
 
 		return isInRoad && checkpointIsCrossed;
