@@ -292,7 +292,7 @@ protected:
 		LoadMap(mapFile);
 
 		//Environment models
-		//readModels(envModelsPath);
+		readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VD, value, MGCG);
