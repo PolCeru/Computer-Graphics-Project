@@ -177,7 +177,7 @@ protected:
 	std::vector<float> steeringAng;
 	std::vector<float> nextAng; 
 
-	glm::vec3 oldFarwardDir; // only for playerCar
+	glm::vec3 oldUpdatedCarPos; // only for playerCar
 
 	// Assume initialRotation is the rotation applied to the car model at spawn, represented as a quaternion
 	glm::quat initialRotationQuat;
@@ -794,7 +794,7 @@ protected:
 
 		if (!raceIsEnded) {
 			CarsMotionHandler(deltaT, m);
-			CheckpointHandler(deltaT);
+			CheckpointHandler(deltaT, m);
 
 		} else {
 			steeringAng[winner] += 15.0f * carSteeringSpeed * deltaT; 
@@ -1068,9 +1068,9 @@ protected:
 
 
 	// Handles checkpoint updates logic
-	void CheckpointHandler(float deltaT) {
+	void CheckpointHandler(float deltaT, glm::vec3 m) {
 		//Checkpoint handling
-		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint], deltaT)) {
+		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint], deltaT, m)) {
 			currentCheckpoint++;
 			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
@@ -1113,25 +1113,35 @@ protected:
 
 
 	// Function to check if the car is crossing the checkpoint
-	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint, float deltaT) {
+	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint, float deltaT, glm::vec3 m) {
 		
 		bool isInRoad = false;
 		bool checkpointIsCrossed = false;
 		float epsilon = 0.0001f; 
 		float outOfRoadTollerance = 1.5f; 
 		float potVelocity = abs(carVelocity[player_car]);
-
+		float zToCross = checkpoint.pointA.z;
+		float xToCross = checkpoint.pointA.x; 
 
 		if (abs(checkpoint.pointA.z - checkpoint.pointB.z) < epsilon) { // MOVING ALONG Z
-			checkpointIsCrossed = abs(carPos.z - checkpoint.position.z) - checkpointOffset <= potVelocity * deltaT;
+			if (zToCross - oldUpdatedCarPos.z > 0.0f) { //POSITIVE Z AXES
+				checkpointIsCrossed = carPos.z >= zToCross;
+			}
+			else if (zToCross - oldUpdatedCarPos.z < 0.0f) { // NEGATIVE Z AXES
+				checkpointIsCrossed = carPos.z <= zToCross;
+			}
 			isInRoad = carPos.x <= glm::max(checkpoint.pointA.x, checkpoint.pointB.x) + outOfRoadTollerance && carPos.x >= glm::min(checkpoint.pointA.x, checkpoint.pointB.x) - outOfRoadTollerance;
 		}
 
 		else if (abs(checkpoint.pointA.x - checkpoint.pointB.x) < epsilon) { // MOVING ALONG X
-			checkpointIsCrossed = abs(carPos.x - checkpoint.position.x) - checkpointOffset <= potVelocity * deltaT;
+			if (xToCross - oldUpdatedCarPos.x > 0.0f) { // POSITIVE X AXES
+				checkpointIsCrossed = carPos.x >= xToCross;
+			}
+			else if (xToCross - oldUpdatedCarPos.x < 0.0f) { // NEGATIVE X AXES
+				checkpointIsCrossed = carPos.x <= xToCross;
+			}
 			isInRoad = carPos.z <= glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + outOfRoadTollerance && carPos.z >= glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - outOfRoadTollerance;
 		}
-
 		return isInRoad && checkpointIsCrossed;
 	}
 
@@ -1189,10 +1199,9 @@ protected:
 		steeringRotation[player_car] = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
 		totalRotation[player_car] = initialRotationQuat * steeringRotation[player_car];
 
-		oldFarwardDir = forwardDir[player_car]; 
-
 		forwardDir[player_car] = totalRotation[player_car] * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
 		startingCarPos[player_car] += forwardDir[player_car] * carVelocity[player_car] * deltaT;
+		oldUpdatedCarPos = updatedCarPos[player_car];
 		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
 
 		CollisionHandler(forwardDir[player_car], deltaT);
