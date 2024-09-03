@@ -1135,66 +1135,7 @@ protected:
 			isInRoad = carPos.z <= glm::max(checkpoint.pointA.z, checkpoint.pointB.z) + 1.5f && carPos.z >= glm::min(checkpoint.pointA.z, checkpoint.pointB.z) - 1.5f;
 		}
 
-		if (currentCheckpoint == 6) {
-			printVec3("CAR POS", carPos);
-			printVec3("POINT A", checkpoint.pointA);
-			printVec3("POINT B", checkpoint.pointB);
-			std::cout << potVelocity << std::endl; 
-			std::cout << checkpointIsCrossed << std::endl; 
-			std::cout << isInRoad << std::endl;
-
-		}
-
 		return isInRoad && checkpointIsCrossed;
-
-
-		/*float tolerance = 0.2f;
-		bool withinX(carPos.x >= (glm::min(checkpoint.pointA.x, checkpoint.pointB.x)) && carPos.x <= (glm::max(checkpoint.pointA.x, checkpoint.pointB.x)));
-		bool withinZ(carPos.z >= (glm::min(checkpoint.pointA.z, checkpoint.pointB.z)) && carPos.z <= (glm::max(checkpoint.pointA.z, checkpoint.pointB.z)));
-		return withinX && withinZ;*/
-		
-
-		/*bool isInRoad = false;
-		bool checkpointIsCrossed = false; 
-
-		if (abs(oldFarwardDir.x) > abs(oldFarwardDir.z)) {
-			isInRoad = carPos.z >= checkpoint.pointA.z && carPos.z <= checkpoint.pointB.z; 
-			if (oldFarwardDir.x > 0) {
-				checkpointIsCrossed = carPos.x >= checkpoint.position.x - 6.0f; 
-			}
-			else if (oldFarwardDir.x < 0) {
-				checkpointIsCrossed = carPos.x <= checkpoint.position.x + 6.0f; 
-			}
-		}
-		else if (abs(oldFarwardDir.x) < abs(oldFarwardDir.z)) {
-			isInRoad = carPos.x >= checkpoint.pointA.x && carPos.x <= checkpoint.pointB.x; 
-			if (oldFarwardDir.z < 0) {
-				checkpointIsCrossed = carPos.z <= checkpoint.position.z + 6.0f; 
-			}
-			else if (oldFarwardDir.z > 0) {
-				checkpointIsCrossed = carPos.z >= checkpoint.position.z - 6.0f;
-			}
-		}*/
-
-		/*if (currentCheckpoint == 1) {
-			printVec3("CAR POSITION: ", carPos);
-			printVec3("CHECKPOINT POSITION", checkpoint.position);
-			printVec3("POINT A", checkpoint.pointA);
-			printVec3("POINT B", checkpoint.pointB);
-			printVec3("OLD FARWARD", oldFarwardDir);
-			std::cout << isInRoad << std::endl; 
-			std::cout << checkpointIsCrossed << std::endl; 
-		}*/
-
-		
-		/*std::cout << glm::distance(carPos, checkpoint.pointA) << std::endl;
-		std::cout << glm::distance(carPos, checkpoint.pointB) << std::endl;
-		return glm::distance(carPos, checkpoint.pointA) <= 3.0f && glm::distance(carPos, checkpoint.pointB) <= 3.0f; */
-
-
-
-
-
 	}
 
 	//Defines the dynamics of the car movement and updates the car position
