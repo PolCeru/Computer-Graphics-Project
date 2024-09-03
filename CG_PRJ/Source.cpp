@@ -1119,8 +1119,7 @@ protected:
 		bool checkpointIsCrossed = false;
 		float epsilon = 0.0001f; 
 		float outOfRoadTollerance = 1.5f; 
-		int framesOfPrediction = -1; // during the last updated_car_position (just updated) the car passes the checkpoint
-		float potVelocity = abs(carVelocity[player_car] + carAcceleration * deltaT * framesOfPrediction);
+		float potVelocity = abs(carVelocity[player_car]);
 
 
 		if (abs(checkpoint.pointA.z - checkpoint.pointB.z) < epsilon) { // MOVING ALONG Z
