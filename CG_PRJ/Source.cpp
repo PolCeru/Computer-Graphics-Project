@@ -192,7 +192,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 10;
+	int maxLaps = 3;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -215,8 +215,7 @@ protected:
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	/******* RACE PARAMETERS *******/
-	int currentCheckpoint; 
-	int counter = 0;
+	int currentCheckpoint;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
 	int winner; 
@@ -879,7 +878,7 @@ protected:
 			for (int i = 0; i < 2; i++) {
 				glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
 				carLights_ubo->headlightPosition[j][i] = updatedCarPos[j] + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-				carLights_ubo->headlightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, -1.0f, 0.0f)); //pointing forward
+				carLights_ubo->headlightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.2f, -1.0f, 0.0f)); //pointing forward
 				if (scene == 3) {
 					carLights_ubo->headlightColor[j][i] = glm::vec4(1.0f, 1.0f, 1.0f, 0.5f); //white
 				}
@@ -888,7 +887,7 @@ protected:
 				}
 				lightsOffset = glm::vec3((i == 0) ? -0.55f : 0.55f, 0.6f, 1.9f);
 				carLights_ubo->rearLightPosition[j][i] = updatedCarPos[j] + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
-				carLights_ubo->rearLightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.5f, 1.0f, 0.0f)); //pointing backwards
+				carLights_ubo->rearLightDirection[j][i] = glm::vec3(rotationMatrix * glm::vec4(0.0f, -0.2f, 1.0f, 0.0f)); //pointing backwards
 				if (scene == 3) {
 					carLights_ubo->rearLightColor[j][i] = glm::vec4(1.0f, 0.0f, 0.0f, 0.5f); //red
 				}
@@ -1075,6 +1074,7 @@ protected:
 		//Checkpoint handling
 		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint], deltaT, m)) {
 			currentCheckpoint++;
+			std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
 			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
 				car_laps[player_car] += 1;
@@ -1096,15 +1096,9 @@ protected:
 			}
 			winnerHandler(i); 
 		}
-		
-		//checkpoint Debug
-		counter++;
-		if (counter % 25 == 0) {
-			std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
-			counter = 0;
-		}
 	}
 	
+	// Function to handle laps
 	void lapUpdatingHandler(int carIndex, float deltaT) {
 		if (checkDistance(checkpoints[checkpoints.size() - 1].position, carIndex, deltaT)) {
 			car_laps[carIndex]++;
@@ -1112,14 +1106,15 @@ protected:
 		}
 	}
 
+	// Function to check if the car has won
 	void winnerHandler(int carIndex) {
 		if (car_laps[carIndex] == maxLaps) {
 			raceIsEnded = true;
 			winner = carIndex;
 			updatedCarPos[carIndex] = end_position;
+			audio.PlayClappingSound();
 		}
 	}
-
 
 	// Function to check if the car is crossing the checkpoint
 	bool IsBetweenPoints(const glm::vec3& carPos, const Checkpoint& checkpoint, float deltaT, glm::vec3 m) {
@@ -1128,7 +1123,6 @@ protected:
 		bool checkpointIsCrossed = false;
 		float epsilon = 0.0001f; 
 		float outOfRoadTollerance = 1.5f; 
-		float potVelocity = abs(carVelocity[player_car]);
 		float zToCross = checkpoint.pointA.z;
 		float xToCross = checkpoint.pointA.x; 
 
@@ -1293,14 +1287,13 @@ protected:
 		return; 
 	}
 
+	// Checks if the car is close to the target position
 	bool checkDistance(glm::vec3 targetPos, int carIndex, float deltaT) {
 		float potVelocity = carVelocity[carIndex] + (2 * carAcceleration * deltaT); 
 		bool checkOnX = abs(updatedCarPos[carIndex].x - targetPos.x) <= abs(forwardDir[carIndex].x * potVelocity * deltaT) + abs(potVelocity * deltaT);
 		bool checkOnZ = abs(updatedCarPos[carIndex].z - targetPos.z) <= abs(forwardDir[carIndex].z * potVelocity * deltaT) + abs(potVelocity * deltaT);
 		return (checkOnX && checkOnZ);
 	}
-
-
 
 	//Handles the camera movement and updates the view matrix
 	void CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
