@@ -57,17 +57,17 @@ class GridApp:
     def toggle_start_end(self, r, c):
         if not self.start_position:
             self.start_position = (r, c)
-            self.buttons[r][c].config(bg="lightgreen", text="Start")
+            self.buttons[r][c].config(bg="lightgreen", text="Straight")
         elif not self.end_position:
             if (r, c) == self.start_position:
                 return  # Do nothing if trying to set end where start is
             self.end_position = (r, c)
-            self.buttons[r][c].config(bg="lightcoral", text="End")
+            self.buttons[r][c].config(bg="lightcoral", text="Straight")
         else:
             # If both start and end are set, reset them and start over
             self.reset_start_end()
             self.start_position = (r, c)
-            self.buttons[r][c].config(bg="lightgreen", text="Start")
+            self.buttons[r][c].config(bg="lightgreen", text="Straight")
 
     def reset_start_end(self):
         if self.start_position:
@@ -104,15 +104,15 @@ class GridApp:
         self.save_button.grid(row=self.rows, column=0, columnspan=self.cols, sticky="e", pady=10, padx=10)
 
     def save_config(self):
-        config = {"map": [], "checkpoints": [], "start": None, "end": None}
+        config = {"_map": [], "checkpoints": [], "start": None, "end": None}
         start = None
-        config["map"] = self.selected_items  # Include the selected items
+        config["_map"] = self.selected_items  # Include the selected items
         for item in self.selected_items:
             if (item["row"], item["col"]) in self.checkpoints:
                 config["checkpoints"].append({"row": item["row"], "col": item["col"]})
 
         if self.start_position:
-            config["start"] = {"row": self.start_position[0], "col": self.start_position[1]} #test this
+            config["start"] = {"row": self.start_position[0], "col": self.start_position[1]}
         else:
             config["start"] = self.selected_items[0]  # Default to the first item
 

@@ -472,7 +472,6 @@ protected:
 		
 		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
-
 			if (jsonKey == "_map") {
 				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
@@ -787,12 +786,12 @@ protected:
 		glm::vec3 r = glm::vec3(0.0f);  // Rotation
 		bool fire = false;				// Button pressed
 		getSixAxis(deltaT, m, r, fire);
-
+		
 		//Matrices setup 
 		glm::mat4 pMat = glm::perspective(FOVy, ar, nearPlane, farPlane);	//Projection Matrix
 		pMat[1][1] *= -1;													//Flip Y
 		glm::mat4 vpMat;													//View Projection Matrix
-
+		
 		if (!raceIsEnded) {
 			CarsMotionHandler(deltaT, m);
 			CheckpointHandler(deltaT, m);
@@ -800,14 +799,12 @@ protected:
 		} else {
 			steeringAng[winner] += 15.0f * carSteeringSpeed * deltaT; 
 		}
-
 		//Walk model procedure 
 		CameraPositionHandler(r, deltaT, m, vpMat, pMat);
 
 		// Scenery change and update
 		turningTime += deltaT;
 		turningTime = (turningTime >= 2.0 * sun_cycle_duration) ? 0.0f : turningTime;
-
 		if (turningTime > daily_phase_duration && scene == 0) {
 			scene = 1;
 			RebuildPipeline();
@@ -1208,7 +1205,6 @@ protected:
 		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
 
 		CollisionHandler(forwardDir[player_car], deltaT);
-
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
 				if (nextAng[i] == 0.0f) {
@@ -1261,22 +1257,27 @@ protected:
 	// Manages the car direction and updates the car position
 	void manageCarDirection(int carIndex, float deltaT) {
 		int n; 
-		int m; 
-		n = mapIndexes[LEFT][nextLeftTurn[carIndex]].first; 
-		m = mapIndexes[LEFT][nextLeftTurn[carIndex]].second;
-		if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
-			nextAng[carIndex] = glm::radians(90.0f);
-			nextLeftTurn[carIndex] = (nextLeftTurn[carIndex] + 1) % mapIndexes[LEFT].size(); 
-			startingCarPos[carIndex] = mapLoaded[n][m].pos;
-			return;
+		int m;
+		if(mapIndexes[LEFT].size() != 0){
+			n = mapIndexes[LEFT][nextLeftTurn[carIndex]].first; 
+			m = mapIndexes[LEFT][nextLeftTurn[carIndex]].second;
+			if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
+				nextAng[carIndex] = glm::radians(90.0f);
+				nextLeftTurn[carIndex] = (nextLeftTurn[carIndex] + 1) % mapIndexes[LEFT].size(); 
+				startingCarPos[carIndex] = mapLoaded[n][m].pos;
+				return;
+			}
 		}
-		n = mapIndexes[RIGHT][nextRightTurn[carIndex]].first; 
-		m = mapIndexes[RIGHT][nextRightTurn[carIndex]].second;
-		if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
-			nextAng[carIndex] = -glm::radians(90.0f);
-			nextRightTurn[carIndex] = (nextRightTurn[carIndex] + 1) % mapIndexes[RIGHT].size();
-			startingCarPos[carIndex] = mapLoaded[n][m].pos;
-			return;
+
+		if(mapIndexes[RIGHT].size() != 0){
+			n = mapIndexes[RIGHT][nextRightTurn[carIndex]].first; 
+			m = mapIndexes[RIGHT][nextRightTurn[carIndex]].second;
+			if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
+				nextAng[carIndex] = -glm::radians(90.0f);
+				nextRightTurn[carIndex] = (nextRightTurn[carIndex] + 1) % mapIndexes[RIGHT].size();
+				startingCarPos[carIndex] = mapLoaded[n][m].pos;
+				return;
+			}
 		}
 		carVelocity[carIndex] += carAcceleration * deltaT;
 		carVelocity[carIndex] = glm::min(carVelocity[carIndex], 70.0f - (25.0f * carIndex));
@@ -1298,7 +1299,6 @@ protected:
 	//Handles the camera movement and updates the view matrix
 	void CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
 	{
-
 		static glm::vec3 dampedCamPos = camPos;
 		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
 		beta -= ROT_SPEED * r.x * deltaT;		// pitch
