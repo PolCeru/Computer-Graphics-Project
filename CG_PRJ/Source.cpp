@@ -187,11 +187,12 @@ protected:
 	std::map<int, int> nextRightTurn; 
 	std::map<int, int> nextLeftTurn; 
 	std::map<int, int> car_laps; 
+	std::map<int, bool> intermediateCheckpointIsCrossed; // for bot cars
 
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 100;
+	int maxLaps = 10;
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
@@ -532,6 +533,7 @@ protected:
 				car_laps[i] = 0; 
 				nextRightTurn[i] = 0; 
 				nextLeftTurn[i] = 0; 
+				intermediateCheckpointIsCrossed[i] = false; 
  			}
 		
 		}
@@ -1050,6 +1052,7 @@ protected:
 		}
 		DScp.map(currentImage, cp_ubo, 1);
 		DScp.map(currentImage, carLights_ubo, 2);
+		DScp.map(currentImage, lights_tile_ubo, 3);
 
 		//Environment
 		EnvironmentUniformBufferObject env_ubo{};
@@ -1084,7 +1087,12 @@ protected:
 
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
-				lapUpdatingHandler(i, deltaT);
+				if (intermediateCheckpointIsCrossed[i]) {
+					lapUpdatingHandler(i, deltaT);
+				}
+				else if (checkDistance(checkpoints[(checkpoints.size() - 1) / 2].position, i, deltaT)) {
+					intermediateCheckpointIsCrossed[i] = true; 
+				}
 			}
 			winnerHandler(i); 
 		}
@@ -1100,6 +1108,7 @@ protected:
 	void lapUpdatingHandler(int carIndex, float deltaT) {
 		if (checkDistance(checkpoints[checkpoints.size() - 1].position, carIndex, deltaT)) {
 			car_laps[carIndex]++;
+			intermediateCheckpointIsCrossed[carIndex] = false;
 		}
 	}
 
@@ -1283,17 +1292,6 @@ protected:
 		startingCarPos[carIndex] += forwardDir[carIndex] * carVelocity[carIndex] * deltaT;
 		return; 
 	}
-
-	// Check if the car is close to the next turn
-	/*bool checkDistance(int n, int m, int carIndex, float deltaT) {
-		float potVelocity = carVelocity[carIndex] + (2 * carAcceleration * deltaT); 
-		bool checkOnX = abs(updatedCarPos[carIndex].x - mapLoaded[n][m].pos.x) <= abs(forwardDir[carIndex].x * potVelocity * deltaT) + abs(potVelocity * deltaT);
-		bool checkOnZ = abs(updatedCarPos[carIndex].z - mapLoaded[n][m].pos.z) <= abs(forwardDir[carIndex].z * potVelocity * deltaT) + abs(potVelocity * deltaT);
-		return (checkOnX && checkOnZ); 
-	}*/
-
-
-
 
 	bool checkDistance(glm::vec3 targetPos, int carIndex, float deltaT) {
 		float potVelocity = carVelocity[carIndex] + (2 * carAcceleration * deltaT); 
