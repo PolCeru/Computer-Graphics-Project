@@ -451,7 +451,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/map_ina.json");
+		std::ifstream infile("config/map_hor.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -473,13 +473,13 @@ protected:
 		initialRotation = ((int)json["_map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : ((int)json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
-		
+
 		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
 			if (jsonKey == "_map") {
 				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
-				
-					
+
+
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
 					RoadType type = getRTEnumFromString(mapValues["type"]);
 					// Add the road piece to the map
@@ -493,7 +493,7 @@ protected:
 					previousItemIndex = index;
 
 					if (mapValues["type"] == "STRAIGHT" || mapValues["type"] == "LEFT" || mapValues["type"] == "RIGHT") {
-						roadsPosition.push_back(mapLoaded[index.first][index.second].pos); 
+						roadsPosition.push_back(mapLoaded[index.first][index.second].pos);
 					}
 
 
@@ -513,12 +513,12 @@ protected:
 			else if (jsonKey == "start") {
 				std::pair <int, int> startPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
 				startingCarPos[player_car] = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
-				for (int i = 0; i < startingCarPos.size(); i++) {					
+				for (int i = 0; i < startingCarPos.size(); i++) {
 					if (i != player_car) {
 						startingCarPos[i] =
 							startingCarPos[player_car] + glm::vec3(
-									glm::rotate(glm::mat4(1.0f), glm::radians(initialRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
-									glm::vec4(0.0f, 0.0f, -4.0f * i, 1.0f)); 
+								glm::rotate(glm::mat4(1.0f), glm::radians(initialRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
+								glm::vec4(0.0f, 0.0f, -4.0f * i, 1.0f));
 					}
 				}
 				camPos = glm::vec3(startingCarPos[player_car].x, camHeight, startingCarPos[player_car].z - camDist);
@@ -527,31 +527,30 @@ protected:
 			}
 			else if (jsonKey == "end") {
 				std::pair <int, int> endPosIndex;
-				int cpIndex;
+				//int cpIndex;
 				if (jsonValues == nullptr) {
 					endPosIndex = std::make_pair(json["_map"].back()["row"], json["_map"].back()["col"]);
-					lastCpIndex++;
+					std::cout << endPosIndex.first << endPosIndex.second << std::endl; 
 				}
 				else {
 					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
-					lastCpIndex++;
 					maxLaps = 1;
 				}
 				end_position = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
 				float rotation = mapLoaded[endPosIndex.first][endPosIndex.second].rotation;
 				initCheckpoint(end_position, rotation, lastCpIndex);
+				lastCpIndex++; 
 			}
 
 			for (int i = 0; i < NUM_CARS; i++) {
-				car_laps[i] = 0; 
-				nextRightTurn[i] = 0; 
-				nextLeftTurn[i] = 0; 
-				intermediateCheckpointIsCrossed[i] = false; 
- 			}
+				car_laps[i] = 0;
+				nextRightTurn[i] = 0;
+				nextLeftTurn[i] = 0;
+				intermediateCheckpointIsCrossed[i] = false;
+			}
 
-			int mid = (roadsPosition.size() - 1) / 2; 
-			center_road_position = roadsPosition[mid]; 
-			
+			int mid = (roadsPosition.size() - 1) / 2;
+			center_road_position = roadsPosition[mid];
 		}
 	}
 
@@ -1083,8 +1082,7 @@ protected:
 		}
 	}
 
-
-	// Handles checkpoint updates logic
+	// Handles checkpoint updates Checkpoint
 	void CheckpointHandler(float deltaT, glm::vec3 m) {
 		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint], deltaT, m)) {
 			currentCheckpoint++;
@@ -1098,7 +1096,7 @@ protected:
 				audio.PlayCheckpointSound();
 			}
 		}
-
+		
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
 				if (intermediateCheckpointIsCrossed[i]) {
@@ -1300,6 +1298,7 @@ protected:
 		}
 		carVelocity[carIndex] += carAcceleration * deltaT;
 		carVelocity[carIndex] = glm::min(carVelocity[carIndex], 70.0f - (25.0f * carIndex));
+
 		steeringRotation[carIndex] = glm::angleAxis(steeringAng[carIndex], glm::vec3(0.0f, 1.0f, 0.0f));
 		totalRotation[carIndex] = initialRotationQuat * steeringRotation[carIndex];
 		forwardDir[carIndex] = totalRotation[carIndex] * glm::vec3(0.0f, 0.0f, -1.0f);
