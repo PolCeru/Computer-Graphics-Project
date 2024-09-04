@@ -291,7 +291,7 @@ protected:
 		LoadMap(mapFile);
 
 		//Environment models
-		readModels(envModelsPath);
+		//readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VD, value, MGCG);
@@ -447,7 +447,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/map_ina.json");
+		std::ifstream infile("config/map_hor.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -501,9 +501,12 @@ protected:
 			else if (jsonKey == "start") {
 				std::pair <int, int> startPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
 				startingCarPos[player_car] = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
-				for (int i = 0; i < startingCarPos.size(); i++) {
+				for (int i = 0; i < startingCarPos.size(); i++) {					
 					if (i != player_car) {
-						startingCarPos[i] = glm::vec3(startingCarPos[player_car].x, startingCarPos[player_car].y, startingCarPos[player_car].z - (4.0f * i));
+						startingCarPos[i] =
+							startingCarPos[player_car] + glm::vec3(
+									glm::rotate(glm::mat4(1.0f), glm::radians(initialRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
+									glm::vec4(0.0f, 0.0f, -4.0f * i, 1.0f)); 
 					}
 				}
 				camPos = glm::vec3(startingCarPos[player_car].x, camHeight, startingCarPos[player_car].z - camDist);
