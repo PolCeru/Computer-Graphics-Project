@@ -192,12 +192,15 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 3;
+	int maxLaps = 2;
+	std::vector<glm::vec3> roadsPosition; 
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
 	std::map<int, Checkpoint> checkpoints;
-	glm::vec3 end_position = glm::vec3(0.0f, 0.0f, 0.0f); 
+	glm::vec3 end_position = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 center_road_position = glm::vec3(0.0f, 0.0f, 0.0f); 
 	float checkpointOffset = 6.0f; 
+
 
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0;
@@ -388,6 +391,7 @@ protected:
 		Mcp.init(this, &VD, "models/checkpoint.mgcg", MGCG);
 	}
 
+
 	//Initialize the mapLoaded and mapIndexes with the default values
 	void InitMap()
 	{
@@ -447,7 +451,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/map_hor.json");
+		std::ifstream infile("config/map_ina.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -474,6 +478,8 @@ protected:
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
 			if (jsonKey == "_map") {
 				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
+				
+					
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
 					RoadType type = getRTEnumFromString(mapValues["type"]);
 					// Add the road piece to the map
@@ -485,6 +491,12 @@ protected:
 
 					rotationHandler(previousItemIndex, index, type);
 					previousItemIndex = index;
+
+					if (mapValues["type"] == "STRAIGHT" || mapValues["type"] == "LEFT" || mapValues["type"] == "RIGHT") {
+						roadsPosition.push_back(mapLoaded[index.first][index.second].pos); 
+					}
+
+
 				}
 			}
 			else if (jsonKey == "checkpoints") {
@@ -536,7 +548,10 @@ protected:
 				nextLeftTurn[i] = 0; 
 				intermediateCheckpointIsCrossed[i] = false; 
  			}
-		
+
+			int mid = (roadsPosition.size() - 1) / 2; 
+			center_road_position = roadsPosition[mid]; 
+			
 		}
 	}
 
@@ -1071,7 +1086,6 @@ protected:
 
 	// Handles checkpoint updates logic
 	void CheckpointHandler(float deltaT, glm::vec3 m) {
-		//Checkpoint handling
 		if (IsBetweenPoints(updatedCarPos[player_car], checkpoints[currentCheckpoint], deltaT, m)) {
 			currentCheckpoint++;
 			std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
@@ -1090,8 +1104,10 @@ protected:
 				if (intermediateCheckpointIsCrossed[i]) {
 					lapUpdatingHandler(i, deltaT);
 				}
-				else if (checkDistance(checkpoints[(checkpoints.size() - 1) / 2].position, i, deltaT)) {
-					intermediateCheckpointIsCrossed[i] = true; 
+				else {
+					if (checkDistance(center_road_position, i, deltaT)) {
+						intermediateCheckpointIsCrossed[i] = true;
+					}
 				}
 			}
 			winnerHandler(i); 
