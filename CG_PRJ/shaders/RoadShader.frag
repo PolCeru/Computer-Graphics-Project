@@ -2,7 +2,6 @@
 
 // shader params
 const float SHININESS = 150.0;
-const float SPECULAR_INTENSITY = 0.5;
 const float AMBIENT_INTENSITY = 0.2;
 const int MAP_SIZE = 11;
 const int NUM_CARS = 3;
@@ -74,7 +73,7 @@ vec3 computeLambertDiffuse(vec3 lightDir, vec3 normal) {
 vec3 computeBlinnSpecular(vec3 lightDir, vec3 normal, vec3 viewerPosition){
 	vec3 viewer_direction = normalize(viewerPosition - fragPos); 
 	vec3 half_vector = normalize(lightDir + viewer_direction); 
-	vec3 specular_color = vec3(1.0); 
+	vec3 specular_color = vec3(0.5); 
 	return specular_color * pow(max(dot(normal, half_vector), 0.0), SHININESS);
 }
 
@@ -82,22 +81,30 @@ void main() {
 	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; 
 	vec3 light_direction_DL = getLightDir_directLightModel(gubo.lightPos);
 	vec3 light_direction_SL; 
-	vec3 sunColor = AMBIENT_INTENSITY * texColor + getLightColor_directLightModel(gubo.lightColor) * (computeLambertDiffuse(light_direction_DL, abs(normalize(fragNorm))) + computeBlinnSpecular(light_direction_DL, abs(normalize(fragNorm)), gubo.viewerPosition));
 	vec3 carsColor = vec3(0.0); 
 	vec3 lampsColor = vec3(0.0); 
+	vec3 ambient = AMBIENT_INTENSITY * texColor;
+	vec3 sunColor = getLightColor_directLightModel(gubo.lightColor) * (computeLambertDiffuse(light_direction_DL, abs(normalize(fragNorm)))
+																		+ computeBlinnSpecular(light_direction_DL, abs(normalize(fragNorm)), gubo.viewerPosition));
+	// Car lights
 	for (int j = 0; j < NUM_CARS; j++) {
 		for (int i = 0; i < 2; i++) {
 			light_direction_SL = getLightDir_spotLightModel(cubo.headlightPosition[j][i]); 
-			carsColor += getLightColor_spotLightModel(cubo.headlightColor[j][i], cubo.headlightPosition[j][i], cubo.headlightDirection[j][i], -light_direction_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) * computeLambertDiffuse(light_direction_SL, normalize(fragNorm));  
+			carsColor += getLightColor_spotLightModel(cubo.headlightColor[j][i], cubo.headlightPosition[j][i], cubo.headlightDirection[j][i], -light_direction_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) *
+						 computeLambertDiffuse(light_direction_SL, abs(normalize(fragNorm)));  
+
 			light_direction_SL = getLightDir_spotLightModel(cubo.rearLightPosition[j][i]);
-			carsColor += getLightColor_spotLightModel(cubo.rearLightColor[j][i], cubo.rearLightPosition[j][i], cubo.rearLightDirection[j][i], -light_direction_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) * computeLambertDiffuse(light_direction_SL, normalize(fragNorm));  
+			carsColor += getLightColor_spotLightModel(cubo.rearLightColor[j][i], cubo.rearLightPosition[j][i], cubo.rearLightDirection[j][i], -light_direction_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) * 
+						computeLambertDiffuse(light_direction_SL, abs(normalize(fragNorm)));  
 		}
 	}
+
+	// Road lights
 	for(int i = 0; i < 3; i++) {
 		light_direction_SL = getLightDir_spotLightModel(vec3(rlubo.spotLight_lightPosition[current][i])); 
-		lampsColor += getLightColor_spotLightModel(rlubo.lightColorSpot, vec3(rlubo.spotLight_lightPosition[current][i]), vec3(rlubo.spotLight_spotDirection[current][i]), -light_direction_SL, G_LAMP, BETA_LAMP, LAMP_INNER_CUTOFF, LAMP_OUTER_CUTOFF);  
-		computeLambertDiffuse(light_direction_SL, abs(normalize(fragNorm)));  
+		lampsColor += getLightColor_spotLightModel(rlubo.lightColorSpot, vec3(rlubo.spotLight_lightPosition[current][i]), vec3(rlubo.spotLight_spotDirection[current][i]), -light_direction_SL, G_LAMP, BETA_LAMP, LAMP_INNER_CUTOFF, LAMP_OUTER_CUTOFF) *  
+						computeLambertDiffuse(light_direction_SL, abs(normalize(fragNorm)));  
 	}
-	fragColor = vec4(lampsColor + sunColor, 1.0f);
 
+	fragColor = vec4(ambient + lampsColor + sunColor + carsColor, 1.0f);
 }

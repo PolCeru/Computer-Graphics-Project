@@ -161,7 +161,6 @@ protected:
 
 	/******* CARS PARAMETERS *******/
 	float initialRotation = 0.0f;
-
 	const float ROT_SPEED = glm::radians(120.0f);
 	const float MOVE_SPEED = 2.0f;
 	const float carAcceleration = 8.0f;						// [m/s^2]
@@ -192,7 +191,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 100;
+	int maxLaps = 5;
 	std::vector<glm::vec3> roadsPosition; 
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
@@ -294,7 +293,7 @@ protected:
 		LoadMap(mapFile);
 
 		//Environment models
-		//readModels(envModelsPath);
+		readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VD, value, MGCG);
@@ -527,10 +526,8 @@ protected:
 			}
 			else if (jsonKey == "end") {
 				std::pair <int, int> endPosIndex;
-				//int cpIndex;
 				if (jsonValues == nullptr) {
 					endPosIndex = std::make_pair(json["_map"].back()["row"], json["_map"].back()["col"]);
-					std::cout << endPosIndex.first << endPosIndex.second << std::endl; 
 				}
 				else {
 					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
