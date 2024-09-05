@@ -13,7 +13,7 @@
 //Global
 struct GlobalUniformBufferObject {
 	//Direct Light
-	alignas(16) glm::vec3 lightDir;
+	alignas(16) glm::vec3 lightPos;
 	alignas(16) glm::vec4 lightColor;
 	alignas(16) glm::vec3 viewerPosition;
 };
@@ -192,7 +192,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 2;
+	int maxLaps = 100;
 	std::vector<glm::vec3> roadsPosition; 
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
@@ -205,7 +205,7 @@ protected:
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0;
 	float turningTime = 0.0f;
-	float sun_cycle_duration = 120.0f;
+	float sun_cycle_duration = 20.0f; //120.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f;
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f;
@@ -451,7 +451,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/map_hor.json");
+		std::ifstream infile("config/map_ina.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -842,9 +842,9 @@ protected:
 		//Global
 		GlobalUniformBufferObject* g_ubo = new GlobalUniformBufferObject();
 		if (scene != 3)
-			g_ubo->lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
+			g_ubo->lightPos = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * turningTime), cos(glm::radians(180.0f) - rad_per_sec * turningTime));
 		else
-			g_ubo->lightDir = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
+			g_ubo->lightPos = glm::vec3(0.0f, sin(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)), cos(glm::radians(180.0f) - rad_per_sec * (turningTime - sun_cycle_duration)));
 
 		timeScene = turningTime - scene * daily_phase_duration;
 		timeFactor = timeScene / daily_phase_duration;

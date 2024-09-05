@@ -32,12 +32,27 @@ vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
 	return diffuse + specular; 
 } 
 
+vec3 ON(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
+	float sigma_squared = pow(3.14, 2); 
+	float theta_i = acos(dot(lightDir, normal)); 
+	float theta_r = acos(dot(normalize(viewerPosition), normal)); 
+	float alpha = max(theta_i, theta_r); 
+	float beta = min(theta_i, theta_r); 
+	float A = 1 - ((0.5 * sigma_squared) / (sigma_squared + 0.33)); 
+	float B = (0.45 * sigma_squared) / (sigma_squared + 0.09); 
+	vec3 vi = normalize(gubo.lightDir - dot(gubo.lightDir, normal) * normal); 
+	vec3 vr = normalize(normalize(viewerPosition) - dot(normalize(viewerPosition), normal) * normal); 
+	float G = max(0, dot(vi, vr)); 
+	vec3 L = texColor * max(dot(lightDir, normal), 0.0f);
+	return L * (A + B*G*sin(alpha)*tan(beta));
+}
+
 void main() {
 	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNorm);
 	vec3 ambient = AMBIENT_INTENSITY * texColor;  
 
-	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
+	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * ON(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
 
 	fragColor = vec4(finalColor, 1.0f);
 }
