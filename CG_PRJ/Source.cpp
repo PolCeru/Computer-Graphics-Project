@@ -338,8 +338,7 @@ protected:
 		//Environment
 		DSLenvironment.init(this, {
 			{ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, sizeof(EnvironmentUniformBufferObject), 1 },
-			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }, 
-			{ 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(CarLightsUniformBufferObject), 1 },
+			{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0, 1 }
 		});
 	}
 
@@ -621,9 +620,9 @@ protected:
 	// Update the Descriptor Sets Pools
 	void UpdatePools()
 	{
-		DPSZs.uniformBlocksInPool = 1 + 1 + 3 * 3 + Mcar.size() + 2 * (Menv.size() + 2);		// summation of (#ubo * #DS) for each DSL	 (Gl    + SK   + Road	+ Car + Env)
-		DPSZs.texturesInPool = 2 + 3 + Mcar.size() + (Menv.size() + 2);							// summation of (#texure * #DS) for each DSL (		+ SK   + Road	+ Car + Env)
-		DPSZs.setsInPool = 1 + 1 + 3 + Mcar.size() + (Menv.size() + 2);							// summation of #DS for each DSL			 (Gl	+ SK   + Road   + Car + Env)
+		DPSZs.uniformBlocksInPool = 2 + 3 * 5 + Mcar.size() + Menv.size();			// summation of (#ubo * #DS) for each DSL	 (Gl SK + Road + Car + Env)
+		DPSZs.texturesInPool = 2 + 5 + Mcar.size() + Menv.size();					// summation of (#texure * #DS) for each DSL (SK*2 + Road + Car + Env)
+		DPSZs.setsInPool = 7 + Mcar.size() + Menv.size();							// summation of #DS for each DSL			 (Gl SK 5*Road + Car + Env)
 
 		std::cout << "Uniform Blocks in the Pool  : " << DPSZs.uniformBlocksInPool << "\n";
 		std::cout << "Textures in the Pool        : " << DPSZs.texturesInPool << "\n";
@@ -652,8 +651,8 @@ protected:
 		DSstraightRoad.init(this, &DSLroad, { &Tenv });
 		DSturnLeft.init(this, &DSLroad, { &Tenv });
 		DSturnRight.init(this, &DSLroad, { &Tenv });
-		DStile.init(this, &DSLenvironment, { &Tenv });
-		DScp.init(this, &DSLenvironment, { &Tenv });
+		DStile.init(this, &DSLroad, { &Tenv });
+		DScp.init(this, &DSLroad, { &Tenv });
 
 		DScar.resize(NUM_CARS);
 		for (int i = 0; i < DScar.size(); i++) {
@@ -773,7 +772,14 @@ protected:
 		DSturnRight.bind(commandBuffer, Proad, 1, currentImage);
 		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(MturnRight.indices.size()), static_cast<uint32_t>(mapIndexes[RIGHT].size()), 0, 0, 0);
 
+		Mtile.bind(commandBuffer);
+		DStile.bind(commandBuffer, Proad, 1, currentImage);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mtile.indices.size()), static_cast<uint32_t>(mapIndexes[NONE].size()), 0, 0, 0);
 
+		//Draw Checkpoints
+		Mcp.bind(commandBuffer);
+		DScp.bind(commandBuffer, Proad, 1, currentImage);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcp.indices.size()), static_cast<uint32_t>(checkpoints.size() * 2), 0, 0, 0);
 
 		//Draw Environment
 		//extract number, count uniqueness (map) and i = id, menv.size() = uniqueness
@@ -784,15 +790,6 @@ protected:
 			DSenvironment[i].bind(commandBuffer, Penv, 1, currentImage);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Menv[i].indices.size()), static_cast<uint32_t>(envIndexesPerModel[i].size()), 0, 0, 0);
 		}
-
-		Mtile.bind(commandBuffer);
-		DStile.bind(commandBuffer, Penv, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mtile.indices.size()), static_cast<uint32_t>(mapIndexes[NONE].size()), 0, 0, 0);
-
-		//Draw Checkpoints
-		Mcp.bind(commandBuffer);
-		DScp.bind(commandBuffer, Penv, 1, currentImage);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(Mcp.indices.size()), static_cast<uint32_t>(checkpoints.size() * 2), 0, 0, 0);
 	}
 
 	// Updates the uniform buffer
@@ -1031,19 +1028,29 @@ protected:
 		DSturnLeft.map(currentImage, lights_turn_left_road_ubo, 3);
 
 		//--------------------Tile
-		EnvironmentUniformBufferObject* r_tile = new EnvironmentUniformBufferObject();
+		RoadUniformBufferObject* r_tile = new RoadUniformBufferObject();
+		RoadLightsUniformBufferObject* lights_tile_ubo = new RoadLightsUniformBufferObject();
 		for (int i = 0; i < mapIndexes[NONE].size(); i++) {
 			int n = mapIndexes[NONE][i].first;
 			int m = mapIndexes[NONE][i].second;
 			r_tile->mMat[i] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos);
 			r_tile->mvpMat[i] = vpMat * r_tile->mMat[i];
 			r_tile->nMat[i] = glm::inverse(glm::transpose(r_tile->mMat[i]));
+			lights_tile_ubo->spotLight_lightPosition[i][0] = glm::vec4(0.0f);  
+			lights_tile_ubo->spotLight_spotDirection[i][0] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_lightPosition[i][1] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_spotDirection[i][1] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_lightPosition[i][2] = glm::vec4(0.0f);
+			lights_tile_ubo->spotLight_spotDirection[i][2] = glm::vec4(0.0f);
 		}
-		DStile.map(currentImage, r_tile, 0);
+		lights_tile_ubo->lightColorSpot = glm::vec4(0.0f);
+		lights_tile_ubo->lightColorSpot = glm::vec4(0.0f);
+		DStile.map(currentImage, r_tile, 1);
 		DStile.map(currentImage, carLights_ubo, 2);
+		DStile.map(currentImage, lights_tile_ubo, 3);
 
 		// Checkpoints
-		EnvironmentUniformBufferObject* cp_ubo = new EnvironmentUniformBufferObject();
+		RoadUniformBufferObject* cp_ubo = new RoadUniformBufferObject();
 		for (int i = 0, j = 0; i < checkpoints.size() * 2; i+=2, j++) {
 			cp_ubo->mMat[i] = glm::translate(glm::mat4(1.0f), checkpoints[j].pointA);
 			cp_ubo->mvpMat[i] = vpMat * cp_ubo->mMat[i];
@@ -1053,22 +1060,22 @@ protected:
 			cp_ubo->mvpMat[i + 1] = vpMat * cp_ubo->mMat[i + 1];
 			cp_ubo->nMat[i + 1] = glm::inverse(glm::transpose(cp_ubo->mMat[i + 1]));
 		}
-		DScp.map(currentImage, cp_ubo, 0);
+		DScp.map(currentImage, cp_ubo, 1);
 		DScp.map(currentImage, carLights_ubo, 2);
+		DScp.map(currentImage, lights_tile_ubo, 3);
 
 		//Environment
-		EnvironmentUniformBufferObject* env_ubo = new EnvironmentUniformBufferObject();
+		EnvironmentUniformBufferObject env_ubo{};
 		for (int i = 0; i < DSenvironment.size(); i++) {
 			for (int j = 0; j < envIndexesPerModel[i].size(); j++) {
 				int n = envIndexesPerModel[i][j].first;
 				int m = envIndexesPerModel[i][j].second;
-				env_ubo->mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos)*
+				env_ubo.mMat[j] = glm::translate(glm::mat4(1.0f), mapLoaded[n][m].pos)*
 								  glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, +0.2f, 0.0f));;
-				env_ubo->mvpMat[j] = vpMat * env_ubo -> mMat[j];
-				env_ubo->nMat[j] = glm::inverse(glm::transpose(env_ubo -> mMat[j]));
+				env_ubo.mvpMat[j] = vpMat * env_ubo.mMat[j];
+				env_ubo.nMat[j] = glm::inverse(glm::transpose(env_ubo.mMat[j]));
 			}
-			DSenvironment[i].map(currentImage, env_ubo, 0);
-			DSenvironment[i].map(currentImage, carLights_ubo, 2);
+			DSenvironment[i].map(currentImage, &env_ubo, 0);
 		}
 	}
 
