@@ -46,9 +46,3 @@ void main(){
 	vec3 sunColor = light_color * (lambertDiffuse(lightDir_DL, normalize(fragNormal)) + blinnSpecular(lightDir_DL, normalize(fragNormal), gubo.viewerPosition));
 	outColor = vec4(ambient + sunColor, 1.0); 
 }
-
-
-
-
-
-
