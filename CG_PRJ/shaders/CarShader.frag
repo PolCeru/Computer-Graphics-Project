@@ -18,34 +18,33 @@ layout(location = 2) in vec3 fragPos;
 
 layout(location = 0) out vec4 outColor; // Output color
 
-vec3 getLightDir_directLightModel(vec3 lightPos) {
+vec3 getLightDir_DL_M(vec3 lightPos) {
 	return normalize(lightPos); 
 }
 
-vec4 getLightColor() {
-	return gubo.lightColor; 
+vec3 getLightColor_DL_M(vec4 light_color) {
+	return light_color.rgb * light_color.a; 
 }
 
-vec3 computeLambertDiffuse(vec3 lightDir) {
-	vec3 texColor = texture(carTexture, fragTexCoord).rgb; 
-	vec3 normal_vector = normalize(fragNormal); 
-	return texColor * (1 - AMBIENT_INTENSITY) *  max(dot(light_dir, normal_vector), 0.0); 
+vec3 lambertDiffuse(vec3 lightDir, vec3 normal) {
+	vec3 texColor = texture(carTexture, fragTexCoord).rgb;
+	return texColor * (1 - AMBIENT_INTENSITY) *  max(dot(lightDir, normal), 0.0); 
 }
 
-vec3 computeBlinnSpecular(vec3 lightDir){
-	vec3 normal_vector = normalize(fragNormal); 
-	vec3 viewer_direction = normalize(gubo.viewerPosition - fragPos); 
-	vec3 half_vector = normalize(light_dir + viewer_direction); 
+vec3 blinnSpecular(vec3 lightDir, vec3 normal, vec3 viewerPos){
+	vec3 viewer_direction = normalize(viewerPos - fragPos); 
+	vec3 half_vector = normalize(lightDir + viewer_direction); 
 	vec3 specular_color = vec3(1.0); 
-	return specular_color * pow(max(dot(normal_vector, half_vector), 0.0), SHININESS);
+	return specular_color * pow(max(dot(normal, half_vector), 0.0), SHININESS);
 }
 
 void main(){
 	vec3 texColor = texture(carTexture, fragTexCoord).rgb; 
-	vec4 light_color = getLightColor(); 
-	vec3 light_direction_DL = getLightDir_directLightModel(gubo.lightPos); 
-	vec3 sunColor = AMBIENT_INTENSITY * texColor + light_color.rgb * light_color.a * (computeLambertDiffuse(light_direction_DL) + computeBlinnSpecular(light_direction_DL));
-	outColor = vec4(sunColor, 1.0); 
+	vec3 light_color = getLightColor_DL_M(gubo.lightColor); 
+	vec3 lightDir_DL = getLightDir_DL_M(gubo.lightPos); 
+	vec3 ambient = texColor * AMBIENT_INTENSITY;
+	vec3 sunColor = light_color * (lambertDiffuse(lightDir_DL, normalize(fragNormal)) + blinnSpecular(lightDir_DL, normalize(fragNormal), gubo.viewerPosition));
+	outColor = vec4(ambient + sunColor, 1.0); 
 }
 
 
