@@ -6,3 +6,4 @@ CG_PRJ/x64/Debug
 CG_PRJ/CG_PRJ.vcxproj
 CG_PRJ/CG_PRJ.vcxproj.filters
 CG_PRJ/CG_PRJ.vcxproj.user
+CG_PRJ/headers/audio.hpp
