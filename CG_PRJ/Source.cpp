@@ -155,6 +155,7 @@ protected:
 	float camHeight = 2.0f;				// height from the target
 	const float lambdaCam = 10.0f;      // damping factor for the camera
 
+	glm::vec3 dampedCamPos = glm::vec3(0.0f); 
 	glm::vec3 camPos = glm::vec3(0.0, camHeight, camDist);				//Camera Position (-l/+r, -d/+u, b/f)
 	glm::mat4 viewMatrix = glm::translate(glm::mat4(1), -camPos);		//View Matrix setup
 	const glm::vec3 upVector = glm::vec3(0, 1, 0);						//Up Vector
@@ -191,7 +192,7 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 5;
+	int maxLaps = 100000;
 	std::vector<glm::vec3> roadsPosition; 
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
@@ -204,7 +205,7 @@ protected:
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0;
 	float turningTime = 0.0f;
-	float sun_cycle_duration = 20.0f; //120.0f;
+	float sun_cycle_duration = 120.0f;
 	float daily_phase_duration = sun_cycle_duration / 3.0f;
 	float rad_per_sec = M_PI / sun_cycle_duration;
 	float timeScene = 0.0f;
@@ -759,6 +760,7 @@ protected:
 
 		//Draw Road pieces
 		Proad.bind(commandBuffer);
+		DSGlobal.bind(commandBuffer, Proad, 0, currentImage); 
 
 		MstraightRoad.bind(commandBuffer);
 		DSstraightRoad.bind(commandBuffer, Proad, 1, currentImage);
@@ -814,7 +816,7 @@ protected:
 			steeringAng[winner] += 15.0f * carSteeringSpeed * deltaT; 
 		}
 		//Walk model procedure 
-		CameraPositionHandler(r, deltaT, m, vpMat, pMat);
+		dampedCamPos = CameraPositionHandler(r, deltaT, m, vpMat, pMat);
 
 		// Scenery change and update
 		turningTime += deltaT;
@@ -865,7 +867,7 @@ protected:
 			break;
 		}
 		g_ubo->lightColor = glm::vec4(startingColor * (1 - timeFactor) + finalColor * timeFactor, 1.0f);
-		g_ubo->viewerPosition = glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
+		g_ubo->viewerPosition = dampedCamPos; //glm::vec3(glm::inverse(viewMatrix) * glm::vec4(0, 0, 0, 1)); // would dampedCam make sense?
 		DSGlobal.map(currentImage, g_ubo, 0);
 
 		//SkyBox
@@ -1312,9 +1314,9 @@ protected:
 	}
 
 	//Handles the camera movement and updates the view matrix
-	void CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
+	glm::vec3 CameraPositionHandler(glm::vec3& r, float deltaT, glm::vec3& m, glm::mat4& vpMat, glm::mat4& pMat)
 	{
-		static glm::vec3 dampedCamPos = camPos;
+		glm::vec3 dampedCamPos = camPos;
 		alpha += ROT_SPEED * r.y * deltaT;		// yaw, += for proper mouse movement
 		beta -= ROT_SPEED * r.x * deltaT;		// pitch
 		camDist -= MOVE_SPEED * deltaT * m.y;
@@ -1352,6 +1354,7 @@ protected:
 			viewMatrix = glm::lookAt(dampedCamPos, -end_position, upVector);
 		}
 		vpMat = pMat * viewMatrix;
+		return dampedCamPos; 
 	}
 };
 

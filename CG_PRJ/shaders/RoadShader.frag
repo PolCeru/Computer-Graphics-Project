@@ -86,18 +86,18 @@ void main() {
 	vec3 carsColor = vec3(0.0); 
 	vec3 lampsColor = vec3(0.0); 
 	vec3 normal = normalize(fragNorm);
-	vec3 sunColor = getLightColor_DL_M(gubo.lightColor) * (lambertDiffuse(lightDir_DL, abs(normal))
-																		+ blinnSpecular(lightDir_DL, abs(normal), gubo.viewerPosition));
+	vec3 sunColor = getLightColor_DL_M(gubo.lightColor) * (lambertDiffuse(lightDir_DL, vec3(normal.x, abs(normal.y), normal.z))
+																		+ blinnSpecular(lightDir_DL, vec3(normal.x, abs(normal.y), normal.z), gubo.viewerPosition));
 	// Car lights
 	for (int j = 0; j < NUM_CARS; j++) {
 		for (int i = 0; i < 2; i++) {
 			lightDir_SL = getLightDir_SL_M(cubo.headlightPosition[j][i]); 
 			carsColor += getLightColor_SL_M(cubo.headlightColor[j][i], cubo.headlightPosition[j][i], cubo.headlightDirection[j][i], -lightDir_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) *
-						 lambertDiffuse(lightDir_SL, abs(normal));  
+						 lambertDiffuse(lightDir_SL, vec3(normal.x, abs(normal.y), normal.z));  
 
 			lightDir_SL = getLightDir_SL_M(cubo.rearLightPosition[j][i]);
 			carsColor += getLightColor_SL_M(cubo.rearLightColor[j][i], cubo.rearLightPosition[j][i], cubo.rearLightDirection[j][i], -lightDir_SL, G_CAR, BETA_CAR, HEADLIGHT_INNER_CUTOFF, HEADLIGHT_OUTER_CUTOFF) * 
-						lambertDiffuse(lightDir_SL, abs(normal));  
+						lambertDiffuse(lightDir_SL, vec3(normal.x, abs(normal.y), normal.z));  
 		}
 	}
 
@@ -105,7 +105,7 @@ void main() {
 	for(int i = 0; i < 3; i++) {
 		lightDir_SL = getLightDir_SL_M(vec3(rlubo.spotLight_lightPosition[current][i])); 
 		lampsColor += getLightColor_SL_M(rlubo.lightColorSpot, vec3(rlubo.spotLight_lightPosition[current][i]), vec3(rlubo.spotLight_spotDirection[current][i]), -lightDir_SL, G_LAMP, BETA_LAMP, LAMP_INNER_CUTOFF, LAMP_OUTER_CUTOFF) *  
-						lambertDiffuse(lightDir_SL, abs(normal));  
+						lambertDiffuse(lightDir_SL, vec3(normal.x, abs(normal.y), normal.z));  
 	}
 
 	fragColor = vec4(ambient + lampsColor + sunColor + carsColor, 1.0f);

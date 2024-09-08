@@ -1,8 +1,8 @@
 #version 450
 
-const float SHININESS = 10.0;
+const float SHININESS = 150.0;
 const float SPECULAR_INTENSITY = 0.5;
-const float AMBIENT_INTENSITY = 0.3;
+const float AMBIENT_INTENSITY = 0.15;
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject{
 	vec3 lightDir; 
@@ -18,26 +18,18 @@ layout(location = 2) in vec3 fragNorm;
 
 layout(location = 0) out vec4 fragColor; // Output color
 
-vec3 BRDF(vec3 texColor, vec3 lightDir, vec3 normal, vec3 viewerPosition) {
-	vec3 diffuse, specular; 
-
-	//Lambert
+vec3 lambertDiffuse(vec3 texColor, vec3 lightDir, vec3 normal) {
+	vec3 diffuse; 
 	diffuse = texColor * max(dot(lightDir, normal), 0.0f); 
-	
-	//Blinn
-	vec3 viewerDirection = normalize(viewerPosition - fragPos); 
-	vec3 halfVector = normalize(lightDir + viewerDirection); 
-	specular = SPECULAR_INTENSITY * vec3(pow(max(dot(normal, halfVector), 0.0), SHININESS)); 
-
-	return diffuse + specular; 
+	return diffuse; 
 } 
 
 void main() {
 	vec3 texColor = texture(floorTexture, fragTexCoord).rgb; // Sample the texture
 	vec3 normal = normalize(fragNorm);
+	normal = vec3(normal.x, abs(normal.y), normal.z); 
 	vec3 ambient = AMBIENT_INTENSITY * texColor;  
-
-	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * BRDF(texColor, normalize(gubo.lightDir), abs(normal), gubo.viewerPosition);
-
-	fragColor = vec4(finalColor, 1.0f);
+	
+	vec3 finalColor = ambient + gubo.lightColor.rgb * gubo.lightColor.a * lambertDiffuse(texColor, normalize(gubo.lightDir), normal);
+	fragColor = vec4((finalColor), 1.0f);
 }

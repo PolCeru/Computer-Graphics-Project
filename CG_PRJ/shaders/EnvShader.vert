@@ -1,6 +1,6 @@
 #version 450
 
-const int MAP_SIZE = 23;
+const int MAP_SIZE = 11;
 
 layout(set = 1, binding = 0) uniform EnvironmentUniformBufferObject {
 	mat4 mvpMat[MAP_SIZE * MAP_SIZE];
@@ -19,7 +19,7 @@ layout(location = 2) out vec3 fragNorm;
 void main() {
 	int i = gl_InstanceIndex;
 	gl_Position = eubo.mvpMat[i] * vec4(inPosition, 1.0);
-	fragPos = (eubo.mMat[i] * vec4(inPosition, 1.0)).xyz;
+	fragPos = vec4(inPosition, 1.0).xyz;
 	fragTexCoord = inUV;
-	fragNorm = inNormal;
+	fragNorm = eubo.nMat[i] * inNormal;
 }
