@@ -21,5 +21,5 @@ void main() {
 	gl_Position = eubo.mvpMat[i] * vec4(inPosition, 1.0);
 	fragPos = vec4(inPosition, 1.0).xyz;
 	fragTexCoord = inUV;
-	fragNorm = eubo.nMat[i] * inNormal;
+	fragNorm = inNormal;
 }
