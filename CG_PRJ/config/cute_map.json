@@ -1,0 +1,131 @@
+{
+    "_map": [
+        {
+            "row": 6,
+            "col": 5,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 6,
+            "col": 6,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 6,
+            "col": 7,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 6,
+            "col": 8,
+            "type": "LEFT"
+        },
+        {
+            "row": 5,
+            "col": 8,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 4,
+            "col": 8,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 3,
+            "col": 8,
+            "type": "LEFT"
+        },
+        {
+            "row": 3,
+            "col": 7,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 3,
+            "col": 6,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 3,
+            "col": 5,
+            "type": "RIGHT"
+        },
+        {
+            "row": 2,
+            "col": 5,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 1,
+            "col": 5,
+            "type": "LEFT"
+        },
+        {
+            "row": 1,
+            "col": 4,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 1,
+            "col": 3,
+            "type": "LEFT"
+        },
+        {
+            "row": 2,
+            "col": 3,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 3,
+            "col": 3,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 4,
+            "col": 3,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 5,
+            "col": 3,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 6,
+            "col": 3,
+            "type": "LEFT"
+        },
+        {
+            "row": 6,
+            "col": 4,
+            "type": "STRAIGHT"
+        }
+    ],
+    "checkpoints": [
+        {
+            "row": 6,
+            "col": 8
+        },
+        {
+            "row": 3,
+            "col": 7
+        },
+        {
+            "row": 1,
+            "col": 4
+        },
+        {
+            "row": 3,
+            "col": 3
+        },
+        {
+            "row": 6,
+            "col": 3
+        }
+    ],
+    "start": {
+        "row": 6,
+        "col": 5
+    },
+    "end": null
+}

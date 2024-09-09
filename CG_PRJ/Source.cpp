@@ -189,6 +189,13 @@ protected:
 	std::map<int, int> car_laps; 
 	std::map<int, bool> intermediateCheckpointIsCrossed; // for bot cars
 
+
+
+	float initialRotation_test; 
+	float totalRotation_test; 
+
+
+
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
@@ -294,7 +301,7 @@ protected:
 		LoadMap(mapFile);
 
 		//Environment models
-		readModels(envModelsPath);
+		//readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VD, value, MGCG);
@@ -451,7 +458,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/map_ina.json");
+		std::ifstream infile("config/cute_map.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -473,6 +480,9 @@ protected:
 		initialRotation = ((int)json["_map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : ((int)json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
+
+		initialRotation_test = glm::radians(initialRotation); 
+		totalRotation_test = initialRotation_test; 
 
 		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
@@ -1212,15 +1222,20 @@ protected:
 		}
 
 		// Combine the initial rotation with the current steering angle
-		steeringRotation[player_car] = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
-		totalRotation[player_car] = initialRotationQuat * steeringRotation[player_car];
+		//steeringRotation[player_car] = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
+		//totalRotation[player_car] = initialRotationQuat * steeringRotation[player_car];
 
-		forwardDir[player_car] = totalRotation[player_car] * glm::vec3(0.0f, 0.0f, -1.0f);	//the forward direction in global space
+		totalRotation_test += steeringAng[player_car];
+
+		forwardDir[player_car].x = glm::sin(steeringAng[player_car] + glm::radians(180.0 + initialRotation));
+		forwardDir[player_car].y = 0.0f; 
+		forwardDir[player_car].z = glm::cos(steeringAng[player_car] + glm::radians(180.0 + initialRotation));
+
 		startingCarPos[player_car] += forwardDir[player_car] * carVelocity[player_car] * deltaT;
 		oldUpdatedCarPos = updatedCarPos[player_car];
 		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
 
-		CollisionHandler(forwardDir[player_car], deltaT);
+		//CollisionHandler(forwardDir[player_car], deltaT);
 		for (int i = 0; i < NUM_CARS; i++) {
 			if (i != player_car) {
 				if (nextAng[i] == 0.0f) {

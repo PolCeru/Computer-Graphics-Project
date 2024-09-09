@@ -1,0 +1,133 @@
+{
+    "_map": [
+        {
+            "row": 4,
+            "col": 1,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 5,
+            "col": 1,
+            "type": "LEFT"
+        },
+        {
+            "row": 5,
+            "col": 2,
+            "type": "RIGHT"
+        },
+        {
+            "row": 6,
+            "col": 2,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 7,
+            "col": 2,
+            "type": "LEFT"
+        },
+        {
+            "row": 7,
+            "col": 3,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 7,
+            "col": 4,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 7,
+            "col": 5,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 7,
+            "col": 6,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 7,
+            "col": 7,
+            "type": "LEFT"
+        },
+        {
+            "row": 6,
+            "col": 7,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 5,
+            "col": 7,
+            "type": "RIGHT"
+        },
+        {
+            "row": 5,
+            "col": 8,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 5,
+            "col": 9,
+            "type": "LEFT"
+        },
+        {
+            "row": 4,
+            "col": 9,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 3,
+            "col": 9,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 2,
+            "col": 9,
+            "type": "LEFT"
+        },
+        {
+            "row": 2,
+            "col": 8,
+            "type": "STRAIGHT"
+        },
+        {
+            "row": 2,
+            "col": 7,
+            "type": "STRAIGHT"
+        }
+    ],
+    "checkpoints": [
+        {
+            "row": 5,
+            "col": 2
+        },
+        {
+            "row": 7,
+            "col": 3
+        },
+        {
+            "row": 7,
+            "col": 6
+        },
+        {
+            "row": 5,
+            "col": 7
+        },
+        {
+            "row": 4,
+            "col": 9
+        },
+        {
+            "row": 2,
+            "col": 9
+        }
+    ],
+    "start": {
+        "row": 4,
+        "col": 1
+    },
+    "end": {
+        "row": 2,
+        "col": 7
+    }
+}
