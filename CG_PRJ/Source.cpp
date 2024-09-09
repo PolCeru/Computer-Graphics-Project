@@ -184,8 +184,8 @@ protected:
 	std::map<int, glm::quat> steeringRotation; 
 	std::map<int, glm::quat> totalRotation; 
 	std::map<int, glm::vec3> forwardDir; 
-	std::map<int, int> nextRightTurn; 
-	std::map<int, int> nextLeftTurn; 
+	std::vector<std::map<int, int>> nextRightTurn; 
+	std::vector<std::map<int, int>> nextLeftTurn; 
 	std::map<int, int> car_laps; 
 	std::map<int, bool> intermediateCheckpointIsCrossed; // for bot cars
 
@@ -199,7 +199,6 @@ protected:
 	/******* MAP PARAMETERS *******/
 	nlohmann::json mapFile;
 	const int MAP_CENTER = MAP_SIZE / 2;
-	int maxLaps = 100000;
 	std::vector<glm::vec3> roadsPosition; 
 	std::vector<std::vector<RoadPosition>> mapLoaded;
 	std::vector<std::vector<std::pair<int, int>>> mapIndexes; // 0: STRAIGHT, 1: LEFT, 2: RIGHT
@@ -207,7 +206,6 @@ protected:
 	glm::vec3 end_position = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 center_road_position = glm::vec3(0.0f, 0.0f, 0.0f); 
 	float checkpointOffset = 6.0f; 
-
 
 	/************ DAY PHASES PARAMETERS *****************/
 	int scene = 0;
@@ -225,6 +223,7 @@ protected:
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	/******* RACE PARAMETERS *******/
+	int maxLaps = 3;
 	int currentCheckpoint;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
@@ -477,7 +476,10 @@ protected:
 		InitMap();
 		std::pair<int, int> previousItemIndex = std::make_pair(json["start"]["row"], json["start"]["col"]);
 
-		initialRotation = ((int)json["_map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : ((int)json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f : 0.0f; // Set the initial rotation 
+		// Set the initial rotation of the car
+		initialRotation = ((int)json["_map"][1]["col"] - previousItemIndex.second > 0) ? 270.0f : 
+							((int)json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f :
+							((int)json["_map"][1]["row"] - previousItemIndex.first < 0) ? 0.0f : 180.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
 		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
 
@@ -487,8 +489,7 @@ protected:
 		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
 			if (jsonKey == "_map") {
-				for (const auto& [mapKey, mapValues] : jsonValues.items()) {
-
+				for (const auto& [mapKey, mapValues] : jsonValues.items()) { //Retrieves the road position and type and creates it
 
 					std::pair <int, int> index = std::make_pair(mapValues["row"], mapValues["col"]);
 					RoadType type = getRTEnumFromString(mapValues["type"]);
@@ -505,13 +506,11 @@ protected:
 					if (mapValues["type"] == "STRAIGHT" || mapValues["type"] == "LEFT" || mapValues["type"] == "RIGHT") {
 						roadsPosition.push_back(mapLoaded[index.first][index.second].pos);
 					}
-
-
 				}
 			}
 			else if (jsonKey == "checkpoints") {
 				if (jsonValues.size() != 0) {
-					for (const auto& [cpKey, cpValues] : jsonValues.items()) {
+					for (const auto& [cpKey, cpValues] : jsonValues.items()) { //Retrieves the checkpoint position and rotation and creates it
 						std::pair <int, int> checkpointPosIndex = std::make_pair(cpValues["row"], cpValues["col"]);
 						lastCpIndex = std::stoi(cpKey);
 						glm::vec3 position = mapLoaded[checkpointPosIndex.first][checkpointPosIndex.second].pos;
@@ -520,13 +519,12 @@ protected:
 					}
 				}
 			}
-			else if (jsonKey == "start") {
+			else if (jsonKey == "start") { //Sets the starting position of the cars
 				std::pair <int, int> startPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
 				startingCarPos[player_car] = mapLoaded[startPosIndex.first][startPosIndex.second].pos;
 				for (int i = 0; i < startingCarPos.size(); i++) {
 					if (i != player_car) {
-						startingCarPos[i] =
-							startingCarPos[player_car] + glm::vec3(
+						startingCarPos[i] = startingCarPos[player_car] + glm::vec3(
 								glm::rotate(glm::mat4(1.0f), glm::radians(initialRotation), glm::vec3(0.0f, 1.0f, 0.0f)) *
 								glm::vec4(0.0f, 0.0f, -4.0f * i, 1.0f));
 					}
@@ -535,7 +533,7 @@ protected:
 				updatedCarPos = startingCarPos;
 
 			}
-			else if (jsonKey == "end") {
+			else if (jsonKey == "end") { //Sets the end position of the track
 				std::pair <int, int> endPosIndex;
 				if (jsonValues == nullptr) {
 					endPosIndex = std::make_pair(json["_map"].back()["row"], json["_map"].back()["col"]);
@@ -544,17 +542,23 @@ protected:
 					endPosIndex = std::make_pair(jsonValues["row"], jsonValues["col"]);
 					maxLaps = 1;
 				}
+				if (checkpoints.size() > 0) lastCpIndex++;
 				end_position = mapLoaded[endPosIndex.first][endPosIndex.second].pos;
 				float rotation = mapLoaded[endPosIndex.first][endPosIndex.second].rotation;
 				initCheckpoint(end_position, rotation, lastCpIndex);
-				lastCpIndex++; 
 			}
 
+			// Initialize the car laps and the next turn for each car
+			nextRightTurn.resize(NUM_CARS);
+			nextLeftTurn.resize(NUM_CARS);
 			for (int i = 0; i < NUM_CARS; i++) {
 				car_laps[i] = 0;
-				nextRightTurn[i] = 0;
-				nextLeftTurn[i] = 0;
 				intermediateCheckpointIsCrossed[i] = false;
+
+				for (int j = 0; j < maxLaps; j++) {
+					nextRightTurn[i][j] = 0;
+					nextLeftTurn[i][j] = 0;
+				}
 			}
 
 			int mid = (roadsPosition.size() - 1) / 2;
@@ -1099,7 +1103,8 @@ protected:
 			if (currentCheckpoint == checkpoints.size()) {
 				currentCheckpoint = 0;
 				car_laps[player_car] += 1;
-				audio.PlayLapSound();
+				std::cout << "Lap: " << car_laps[player_car] << " Checkpoint: " << currentCheckpoint << std::endl;
+				if (maxLaps > 1) audio.PlayLapSound();
 			}
 			else {
 				audio.PlayCheckpointSound();
@@ -1287,25 +1292,27 @@ protected:
 
 	// Manages the car direction and updates the car position
 	void manageCarDirection(int carIndex, float deltaT) {
-		int n; 
-		int m;
-		if(mapIndexes[LEFT].size() != 0){
-			n = mapIndexes[LEFT][nextLeftTurn[carIndex]].first; 
-			m = mapIndexes[LEFT][nextLeftTurn[carIndex]].second;
+		int n, m, carLap;
+		carLap = car_laps[carIndex];
+
+		if(mapIndexes[LEFT].size() != 0 && nextLeftTurn[carIndex][carLap] != -1) {
+			n = mapIndexes[LEFT][nextLeftTurn[carIndex][carLap]].first; 
+			m = mapIndexes[LEFT][nextLeftTurn[carIndex][carLap]].second;
 			if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
 				nextAng[carIndex] = glm::radians(90.0f);
-				nextLeftTurn[carIndex] = (nextLeftTurn[carIndex] + 1) % mapIndexes[LEFT].size(); 
+				nextLeftTurn[carIndex][carLap] = ((nextLeftTurn[carIndex][carLap] < mapIndexes[LEFT].size() - 1) ? nextLeftTurn[carIndex][carLap] + 1 : -1);
 				startingCarPos[carIndex] = mapLoaded[n][m].pos;
 				return;
 			}
 		}
 
-		if(mapIndexes[RIGHT].size() != 0){
-			n = mapIndexes[RIGHT][nextRightTurn[carIndex]].first; 
-			m = mapIndexes[RIGHT][nextRightTurn[carIndex]].second;
+		if(mapIndexes[RIGHT].size() != 0  && nextRightTurn[carIndex][carLap] != -1){
+			n = mapIndexes[RIGHT][nextRightTurn[carIndex][carLap]].first; 
+			m = mapIndexes[RIGHT][nextRightTurn[carIndex][carLap]].second;
 			if (checkDistance(mapLoaded[n][m].pos, carIndex, deltaT)) {
 				nextAng[carIndex] = -glm::radians(90.0f);
-				nextRightTurn[carIndex] = (nextRightTurn[carIndex] + 1) % mapIndexes[RIGHT].size();
+
+				nextRightTurn[carIndex][carLap] = ((nextRightTurn[carIndex][carLap] < mapIndexes[RIGHT].size() - 1) ? nextRightTurn[carIndex][carLap] + 1 : -1);
 				startingCarPos[carIndex] = mapLoaded[n][m].pos;
 				return;
 			}
