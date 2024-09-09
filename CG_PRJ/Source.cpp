@@ -180,20 +180,12 @@ protected:
 	glm::vec3 oldUpdatedCarPos; // only for playerCar
 
 	// Assume initialRotation is the rotation applied to the car model at spawn, represented as a quaternion
-	glm::quat initialRotationQuat;
 	std::map<int, glm::quat> steeringRotation; 
-	std::map<int, glm::quat> totalRotation; 
 	std::map<int, glm::vec3> forwardDir; 
 	std::vector<std::map<int, int>> nextRightTurn; 
 	std::vector<std::map<int, int>> nextLeftTurn; 
 	std::map<int, int> car_laps; 
 	std::map<int, bool> intermediateCheckpointIsCrossed; // for bot cars
-
-
-
-	float initialRotation_test; 
-	float totalRotation_test; 
-
 
 
 	/******* MAP PARAMETERS *******/
@@ -223,7 +215,7 @@ protected:
 	glm::vec3 finalColor = glm::vec3(0.0f, 0.0f, 0.0f);
 
 	/******* RACE PARAMETERS *******/
-	int maxLaps = 3;
+	int maxLaps = 20;
 	int currentCheckpoint;
 	const int player_car = 0;
 	bool raceIsEnded = false; 
@@ -481,11 +473,7 @@ protected:
 							((int)json["_map"][1]["col"] - previousItemIndex.second < 0) ? 90.0f :
 							((int)json["_map"][1]["row"] - previousItemIndex.first < 0) ? 0.0f : 180.0f; // Set the initial rotation 
 		mapLoaded[previousItemIndex.first][previousItemIndex.second].rotation = initialRotation;
-		initialRotationQuat = glm::quat(glm::vec3(0.0f, glm::radians(initialRotation), 0.0f)); //Represents the rotation applied to the car model at spawn
-
-		initialRotation_test = glm::radians(initialRotation); 
-		totalRotation_test = initialRotation_test; 
-
+ 
 		int lastCpIndex = 0;
 		for (const auto& [jsonKey, jsonValues] : json.items()) {
 			if (jsonKey == "_map") {
@@ -1130,6 +1118,9 @@ protected:
 	void lapUpdatingHandler(int carIndex, float deltaT) {
 		if (checkDistance(checkpoints[checkpoints.size() - 1].position, carIndex, deltaT)) {
 			car_laps[carIndex]++;
+			if (carIndex == 1) {
+				std::cout << "GIRO: " << car_laps[carIndex] << std::endl; 
+			}
 			intermediateCheckpointIsCrossed[carIndex] = false;
 		}
 	}
@@ -1225,20 +1216,8 @@ protected:
 		if (carVelocity[player_car] != 0.0f) {
 			steeringAng[player_car] += -m.x * carSteeringSpeed * deltaT;
 		}
-
-		// Combine the initial rotation with the current steering angle
-		//steeringRotation[player_car] = glm::angleAxis(steeringAng[player_car], glm::vec3(0.0f, 1.0f, 0.0f));
-		//totalRotation[player_car] = initialRotationQuat * steeringRotation[player_car];
-
-		totalRotation_test += steeringAng[player_car];
-
-		forwardDir[player_car].x = glm::sin(steeringAng[player_car] + glm::radians(180.0 + initialRotation));
-		forwardDir[player_car].y = 0.0f; 
-		forwardDir[player_car].z = glm::cos(steeringAng[player_car] + glm::radians(180.0 + initialRotation));
-
-		startingCarPos[player_car] += forwardDir[player_car] * carVelocity[player_car] * deltaT;
-		oldUpdatedCarPos = updatedCarPos[player_car];
-		updatedCarPos[player_car] = updatedCarPos[player_car] * std::exp(-carDamping * deltaT) + startingCarPos[player_car] * (1 - std::exp(-carDamping * deltaT));
+		
+		updateCarPosition(player_car, deltaT); 
 
 		//CollisionHandler(forwardDir[player_car], deltaT);
 		for (int i = 0; i < NUM_CARS; i++) {
@@ -1290,6 +1269,8 @@ protected:
 		updatedCarPos[player_car] = predictedPos;
 	}
 
+
+
 	// Manages the car direction and updates the car position
 	void manageCarDirection(int carIndex, float deltaT) {
 		int n, m, carLap;
@@ -1305,7 +1286,6 @@ protected:
 				return;
 			}
 		}
-
 		if(mapIndexes[RIGHT].size() != 0  && nextRightTurn[carIndex][carLap] != -1){
 			n = mapIndexes[RIGHT][nextRightTurn[carIndex][carLap]].first; 
 			m = mapIndexes[RIGHT][nextRightTurn[carIndex][carLap]].second;
@@ -1319,12 +1299,20 @@ protected:
 		}
 		carVelocity[carIndex] += carAcceleration * deltaT;
 		carVelocity[carIndex] = glm::min(carVelocity[carIndex], 70.0f - (25.0f * carIndex));
-
-		steeringRotation[carIndex] = glm::angleAxis(steeringAng[carIndex], glm::vec3(0.0f, 1.0f, 0.0f));
-		totalRotation[carIndex] = initialRotationQuat * steeringRotation[carIndex];
-		forwardDir[carIndex] = totalRotation[carIndex] * glm::vec3(0.0f, 0.0f, -1.0f);
-		startingCarPos[carIndex] += forwardDir[carIndex] * carVelocity[carIndex] * deltaT;
+		updateCarPosition(carIndex, deltaT); 
 		return; 
+	}
+
+	void updateCarPosition(int carIndex, float deltaT) {
+		forwardDir[carIndex].x = glm::sin(steeringAng[carIndex] + glm::radians(180.0f + initialRotation));
+		forwardDir[carIndex].y = 0.0f;
+		forwardDir[carIndex].z = glm::cos(steeringAng[carIndex] + glm::radians(180.0f + initialRotation));
+
+		startingCarPos[carIndex] += forwardDir[carIndex] * carVelocity[carIndex] * deltaT;
+		if (carIndex == player_car) {
+			oldUpdatedCarPos = updatedCarPos[carIndex];
+		}
+		updatedCarPos[carIndex] = updatedCarPos[carIndex] * std::exp(-carDamping * deltaT) + startingCarPos[carIndex] * (1 - std::exp(-carDamping * deltaT));
 	}
 
 	// Checks if the car is close to the target position
