@@ -276,7 +276,7 @@ protected:
 		carVelocity.resize(NUM_CARS);
 		steeringAng.resize(NUM_CARS);
 		nextAng.resize(NUM_CARS); 
-		for (int i = 0; i < startingCarPos.size(); i++) {
+		for (int i = 0; i < NUM_CARS; i++) {
 			carVelocity[i] = 0.0f;
 			steeringAng[i] = 0.0f;
 		}
@@ -292,7 +292,7 @@ protected:
 		LoadMap(mapFile);
 
 		//Environment models
-		//readModels(envModelsPath);
+		readModels(envModelsPath);
 		Menv.resize(envFileNames.size());
 		for (const auto& [key, value] : envFileNames) {
 			Menv[key].init(this, &VD, value, MGCG);
@@ -449,7 +449,7 @@ protected:
 	nlohmann::json LoadMapFile() {
 		nlohmann::json json;
 
-		std::ifstream infile("config/cute_map.json");
+		std::ifstream infile("config/map_ina.json");
 		if (!infile.is_open()) {
 			std::cerr << "Error opening file!" << std::endl;
 			exit(1);
@@ -536,22 +536,23 @@ protected:
 				initCheckpoint(end_position, rotation, lastCpIndex);
 			}
 
-			// Initialize the car laps and the next turn for each car
-			nextRightTurn.resize(NUM_CARS);
-			nextLeftTurn.resize(NUM_CARS);
-			for (int i = 0; i < NUM_CARS; i++) {
-				car_laps[i] = 0;
-				intermediateCheckpointIsCrossed[i] = false;
-
-				for (int j = 0; j < maxLaps; j++) {
-					nextRightTurn[i][j] = 0;
-					nextLeftTurn[i][j] = 0;
-				}
-			}
-
-			int mid = (roadsPosition.size() - 1) / 2;
-			center_road_position = roadsPosition[mid];
 		}
+
+		// Initialize the car laps and the next turn for each car
+		nextRightTurn.resize(NUM_CARS);
+		nextLeftTurn.resize(NUM_CARS);
+		for (int i = 0; i < NUM_CARS; i++) {
+			car_laps[i] = 0;
+			intermediateCheckpointIsCrossed[i] = false;
+
+			for (int j = 0; j < maxLaps; j++) {
+				nextRightTurn[i][j] = 0;
+				nextLeftTurn[i][j] = 0;
+			}
+		}
+
+		int mid = (roadsPosition.size() - 1) / 2;
+		center_road_position = roadsPosition[mid];
 	}
 
 	void initCheckpoint(glm::vec3& checkpointPos, float rotation, int id)
@@ -889,7 +890,7 @@ protected:
 		
 		CarLightsUniformBufferObject* carLights_ubo = new CarLightsUniformBufferObject();
 		for (int j = 0; j < NUM_CARS; j++){
-			glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng[j], glm::vec3(0.0f, 1.0f, 0.0f));
+			glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), steeringAng[j] + glm::radians(initialRotation), glm::vec3(0.0f, 1.0f, 0.0f));
 			for (int i = 0; i < 2; i++) {
 				glm::vec3 lightsOffset = glm::vec3((i == 0) ? -0.5f : 0.5f, 0.6f, -1.5f);
 				carLights_ubo->headlightPosition[j][i] = updatedCarPos[j] + glm::vec3(rotationMatrix * glm::vec4(lightsOffset, 1.0f));
@@ -1118,9 +1119,6 @@ protected:
 	void lapUpdatingHandler(int carIndex, float deltaT) {
 		if (checkDistance(checkpoints[checkpoints.size() - 1].position, carIndex, deltaT)) {
 			car_laps[carIndex]++;
-			if (carIndex == 1) {
-				std::cout << "GIRO: " << car_laps[carIndex] << std::endl; 
-			}
 			intermediateCheckpointIsCrossed[carIndex] = false;
 		}
 	}
@@ -1269,8 +1267,6 @@ protected:
 		updatedCarPos[player_car] = predictedPos;
 	}
 
-
-
 	// Manages the car direction and updates the car position
 	void manageCarDirection(int carIndex, float deltaT) {
 		int n, m, carLap;
@@ -1303,6 +1299,7 @@ protected:
 		return; 
 	}
 
+	// Updates the car position based on the car velocity and steering angle
 	void updateCarPosition(int carIndex, float deltaT) {
 		forwardDir[carIndex].x = glm::sin(steeringAng[carIndex] + glm::radians(180.0f + initialRotation));
 		forwardDir[carIndex].y = 0.0f;
